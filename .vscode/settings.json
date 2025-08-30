@@ -1,0 +1,7 @@
+{
+  "editor.formatOnSave": true,
+  "[typescript][json][yaml][javascript][jsonc][jsonl]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "typescript.preferences.importModuleSpecifier": "non-relative",
+}
