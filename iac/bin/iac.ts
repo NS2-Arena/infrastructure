@@ -19,6 +19,7 @@ const regions: RegionInfo[] = app.node.tryGetContext(
   "targetRegions"
 ) as RegionInfo[];
 
+// TODO: Use StackSets when Compute is stable
 regions.forEach((region) => {
   const stack = new NS2ArenaCompute(app, `NS2ArenaCompute${region.area}`, {
     env: {
