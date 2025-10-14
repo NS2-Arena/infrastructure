@@ -1,20 +1,47 @@
 #!/usr/bin/env node
-import * as cdk from 'aws-cdk-lib';
-import { IacStack } from '../lib/iac-stack';
+import { App, Aspects, Tags } from "aws-cdk-lib";
+import { NS2ArenaControlPlane } from "../lib/stacks/controlplane-stack";
+import {
+  AwsSolutionsChecks,
+  NIST80053R5Checks,
+  ServerlessChecks,
+} from "cdk-nag";
+import { NS2ArenaCompute } from "../lib/compute/compute-stack";
 
-const app = new cdk.App();
-new IacStack(app, 'IacStack', {
-  /* If you don't specify 'env', this stack will be environment-agnostic.
-   * Account/Region-dependent features and context lookups will not work,
-   * but a single synthesized template can be deployed anywhere. */
+interface RegionInfo {
+  name: string;
+  area: string;
+}
 
-  /* Uncomment the next line to specialize this stack for the AWS Account
-   * and Region that are implied by the current CLI configuration. */
-  // env: { account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION },
+const app = new App();
 
-  /* Uncomment the next line if you know exactly what Account and Region you
-   * want to deploy the stack to. */
-  // env: { account: '123456789012', region: 'us-east-1' },
+const regions: RegionInfo[] = app.node.tryGetContext("targetRegions");
 
-  /* For more information, see https://docs.aws.amazon.com/cdk/latest/guide/environments.html */
+regions.forEach((region) => {
+  const stack = new NS2ArenaCompute(app, `NS2ArenaCompute${region.area}`, {
+    env: {
+      account: process.env.CDK_DEFAULT_ACCOUNT,
+      region: region.name,
+    },
+    description: "Compute stack for NS2 Arena",
+    stackName: "NS2Arena-Compute",
+  });
+
+  Tags.of(stack).add("application", "NS2Arena-Compute");
 });
+
+// The thinking here is that some information from the compute stacks will be needed by the controlplane. i.e. cluster names, image repo name, etc.
+const controlPlane = new NS2ArenaControlPlane(app, "NS2ArenaControlPlane", {
+  env: {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+    region: process.env.CDK_DEFAULT_REGION,
+  },
+  description: "Control Plane infrastructure for NS2 Arena",
+  stackName: "NS2Arena-ControlPlane",
+});
+
+Tags.of(controlPlane).add("application", "NS2Arena-ControlPlane");
+
+Aspects.of(app).add(new AwsSolutionsChecks());
+Aspects.of(app).add(new ServerlessChecks());
+Aspects.of(app).add(new NIST80053R5Checks());
