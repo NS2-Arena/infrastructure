@@ -18,10 +18,10 @@ export class NS2ArenaCompute extends Stack {
       "ns2arena/ns2-server"
     );
 
-    new NS2ServerTaskDefinition(this, "NS2ServerTaskDefinition", {
+    new NS2ServerTaskDefinition(this, "NS2Server", {
       ns2ServerRepo,
     });
-    new NS2ArenaCluster(this, "ServerlessCluster", { vpc });
+    new NS2ArenaCluster(this, "Cluster", { vpc });
     new NS2ServerSecurityGroup(this, "NS2ServerSecurityGroup", { vpc });
   }
 }
