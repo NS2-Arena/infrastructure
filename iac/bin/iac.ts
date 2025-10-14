@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 import { App, Aspects, Tags } from "aws-cdk-lib";
-import { NS2ArenaControlPlane } from "../lib/controlplane/controlplane-stack";
+import { NS2ArenaControlPlane } from "../lib/stacks/controlplane-stack";
 import {
   AwsSolutionsChecks,
   NIST80053R5Checks,
   ServerlessChecks,
 } from "cdk-nag";
-import { NS2ArenaCompute } from "../lib/compute/compute-stack";
-import { EcrRegistryStack } from "../lib/ecr-registry/ecr-registry-stack";
+import { EcrRegistryStack } from "../lib/stacks/ecr-registry-stack";
+import { NS2ArenaCompute } from "../lib/stacks/compute-stack";
 
 interface RegionInfo {
   name: string;

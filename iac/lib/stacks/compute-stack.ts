@@ -1,10 +1,10 @@
 import { Stack, StackProps } from "aws-cdk-lib";
 import { Repository } from "aws-cdk-lib/aws-ecr";
 import { Construct } from "constructs";
-import NS2ServerTaskDefinition from "./features/ns2-server/task-definition";
-import NS2ServerSecurityGroup from "./features/ns2-server/security-group";
-import NS2ArenaCluster from "./features/ns2-server/cluster";
 import { Vpc } from "aws-cdk-lib/aws-ec2";
+import NS2ServerTaskDefinition from "../features/serverless-ns2-server/task-definition";
+import NS2ArenaCluster from "../features/serverless-ns2-server/cluster";
+import NS2ServerSecurityGroup from "../features/serverless-ns2-server/security-group";
 
 export class NS2ArenaCompute extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
