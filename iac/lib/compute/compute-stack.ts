@@ -115,7 +115,7 @@ export class NS2ArenaCompute extends Stack {
       ],
     });
 
-    NagSuppressions.addResourceSuppressions(ns2ServerTD!, [
+    NagSuppressions.addResourceSuppressions(ns2ServerTD, [
       { id: "AwsSolutions-ECS7", reason: "Not using container logging" },
     ]);
 

@@ -15,7 +15,9 @@ interface RegionInfo {
 
 const app = new App();
 
-const regions: RegionInfo[] = app.node.tryGetContext("targetRegions");
+const regions: RegionInfo[] = app.node.tryGetContext(
+  "targetRegions"
+) as RegionInfo[];
 
 regions.forEach((region) => {
   const stack = new NS2ArenaCompute(app, `NS2ArenaCompute${region.area}`, {
