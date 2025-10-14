@@ -1,4 +1,4 @@
-import { Repository } from "aws-cdk-lib/aws-ecr";
+import { IRepository } from "aws-cdk-lib/aws-ecr";
 import {
   ContainerImage,
   CpuArchitecture,
@@ -17,7 +17,7 @@ import { NagSuppressions } from "cdk-nag";
 import { Construct } from "constructs";
 
 type NS2ServerTaskDefinitionProps = {
-  ns2ServerRepo: Repository;
+  ns2ServerRepo: IRepository;
 };
 
 export default class NS2ServerTaskDefinition extends Construct {

@@ -1,5 +1,5 @@
-import { RemovalPolicy, Stack, StackProps } from "aws-cdk-lib";
-import { Repository, TagMutability } from "aws-cdk-lib/aws-ecr";
+import { Stack, StackProps } from "aws-cdk-lib";
+import { Repository } from "aws-cdk-lib/aws-ecr";
 import { Construct } from "constructs";
 import NS2ServerTaskDefinition from "./features/ns2-server/task-definition";
 import NS2ServerSecurityGroup from "./features/ns2-server/security-group";
@@ -12,11 +12,11 @@ export class NS2ArenaCompute extends Stack {
 
     const vpc = Vpc.fromLookup(this, "DefaultVPC", { isDefault: true });
 
-    const ns2ServerRepo = new Repository(this, "NS2ServerRepository", {
-      imageTagMutability: TagMutability.IMMUTABLE,
-      removalPolicy: RemovalPolicy.DESTROY,
-      emptyOnDelete: true,
-    });
+    const ns2ServerRepo = Repository.fromRepositoryName(
+      this,
+      "NS2ServerRepo",
+      "ns2arena/ns2-server"
+    );
 
     new NS2ServerTaskDefinition(this, "NS2ServerTaskDefinition", {
       ns2ServerRepo,

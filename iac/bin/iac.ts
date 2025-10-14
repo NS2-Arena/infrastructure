@@ -7,6 +7,7 @@ import {
   ServerlessChecks,
 } from "cdk-nag";
 import { NS2ArenaCompute } from "../lib/compute/compute-stack";
+import { EcrRegistryStack } from "../lib/ecr-registry/ecr-registry-stack";
 
 interface RegionInfo {
   name: string;
@@ -18,6 +19,20 @@ const app = new App();
 const regions: RegionInfo[] = app.node.tryGetContext(
   "targetRegions"
 ) as RegionInfo[];
+
+const ecrStack = new EcrRegistryStack(app, "EcrRegistryStack", {
+  env: {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+    region: process.env.CDK_DEFAULT_REGION,
+  },
+  description: "ECR Stack",
+  stackName: "ECRStack",
+  replicationRegions: regions
+    .map((region) => region.name)
+    .filter((region) => region !== process.env.CDK_DEFAULT_REGION),
+});
+
+Tags.of(ecrStack).add("application", "NS2Arena-ECR");
 
 // TODO: Use StackSets when Compute is stable
 regions.forEach((region) => {
