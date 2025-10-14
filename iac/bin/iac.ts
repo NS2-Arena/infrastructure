@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { App, Aspects, Tags } from "aws-cdk-lib";
-import { NS2ArenaControlPlane } from "../lib/stacks/controlplane-stack";
+import { NS2ArenaControlPlane } from "../lib/controlplane/controlplane-stack";
 import {
   AwsSolutionsChecks,
   NIST80053R5Checks,
