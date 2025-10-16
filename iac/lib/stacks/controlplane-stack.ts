@@ -1,8 +1,8 @@
-import * as cdk from "aws-cdk-lib";
 import { Construct } from "constructs";
+import { BaseStack, BaseStackProps } from "./base-stack";
 
-export class NS2ArenaControlPlane extends cdk.Stack {
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+export class NS2ArenaControlPlane extends BaseStack {
+  constructor(scope: Construct, id: string, props: BaseStackProps) {
     super(scope, id, props);
 
     // Create API

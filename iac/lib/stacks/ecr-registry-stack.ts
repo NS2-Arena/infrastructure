@@ -1,17 +1,18 @@
-import { RemovalPolicy, Stack, StackProps } from "aws-cdk-lib";
+import { RemovalPolicy } from "aws-cdk-lib";
 import {
   CfnReplicationConfiguration,
   Repository,
   TagMutability,
 } from "aws-cdk-lib/aws-ecr";
 import { Construct } from "constructs";
+import { BaseStack, BaseStackProps } from "./base-stack";
 
-interface EcrRegistryStackProps extends StackProps {
+interface EcrRegistryStackProps extends BaseStackProps {
   readonly replicationRegions: string[];
 }
 
-export class EcrRegistryStack extends Stack {
-  private readonly repository: Repository;
+export class EcrRegistryStack extends BaseStack {
+  public readonly repository: Repository;
 
   constructor(scope: Construct, id: string, props: EcrRegistryStackProps) {
     super(scope, id, props);

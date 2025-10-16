@@ -20,45 +20,38 @@ const regions: RegionInfo[] = app.node.tryGetContext(
   "targetRegions"
 ) as RegionInfo[];
 
-const ecrStack = new EcrRegistryStack(app, "EcrRegistryStack", {
+new EcrRegistryStack(app, "EcrStack", {
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: process.env.CDK_DEFAULT_REGION,
   },
-  description: "ECR Stack",
-  stackName: "ECRStack",
+  serviceName: "ECR",
+  environment: "staging",
   replicationRegions: regions
     .map((region) => region.name)
     .filter((region) => region !== process.env.CDK_DEFAULT_REGION),
 });
 
-Tags.of(ecrStack).add("application", "NS2Arena-ECR");
-
 // TODO: Use StackSets when Compute is stable
 regions.forEach((region) => {
-  const stack = new NS2ArenaCompute(app, `NS2ArenaCompute${region.area}`, {
+  new NS2ArenaCompute(app, `Compute${region.area}`, {
     env: {
       account: process.env.CDK_DEFAULT_ACCOUNT,
       region: region.name,
     },
-    description: "Compute stack for NS2 Arena",
-    stackName: "NS2Arena-Compute",
+    serviceName: "Compute",
+    environment: "staging",
   });
-
-  Tags.of(stack).add("application", "NS2Arena-Compute");
 });
 
-// The thinking here is that some information from the compute stacks will be needed by the controlplane. i.e. cluster names, image repo name, etc.
-const controlPlane = new NS2ArenaControlPlane(app, "NS2ArenaControlPlane", {
+new NS2ArenaControlPlane(app, "ControlPlane", {
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: process.env.CDK_DEFAULT_REGION,
   },
-  description: "Control Plane infrastructure for NS2 Arena",
-  stackName: "NS2Arena-ControlPlane",
+  serviceName: "ControlPlane",
+  environment: "staging",
 });
-
-Tags.of(controlPlane).add("application", "NS2Arena-ControlPlane");
 
 Aspects.of(app).add(new AwsSolutionsChecks());
 Aspects.of(app).add(new ServerlessChecks());
