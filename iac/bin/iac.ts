@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { App, Aspects, Tags } from "aws-cdk-lib";
+import { App, Aspects } from "aws-cdk-lib";
 import { NS2ArenaControlPlane } from "../lib/stacks/controlplane-stack";
 import {
   AwsSolutionsChecks,
@@ -8,6 +8,7 @@ import {
 } from "cdk-nag";
 import { EcrRegistryStack } from "../lib/stacks/ecr-registry-stack";
 import { NS2ArenaCompute } from "../lib/stacks/compute-stack";
+import { Environment } from "../lib/stacks/base-stack";
 
 interface RegionInfo {
   name: string;
@@ -20,13 +21,15 @@ const regions: RegionInfo[] = app.node.tryGetContext(
   "targetRegions"
 ) as RegionInfo[];
 
+const environment: Environment = "staging";
+
 new EcrRegistryStack(app, "EcrStack", {
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: process.env.CDK_DEFAULT_REGION,
   },
   serviceName: "ECR",
-  environment: "staging",
+  environment,
   replicationRegions: regions
     .map((region) => region.name)
     .filter((region) => region !== process.env.CDK_DEFAULT_REGION),
@@ -40,7 +43,7 @@ regions.forEach((region) => {
       region: region.name,
     },
     serviceName: "Compute",
-    environment: "staging",
+    environment,
   });
 });
 
@@ -50,7 +53,7 @@ new NS2ArenaControlPlane(app, "ControlPlane", {
     region: process.env.CDK_DEFAULT_REGION,
   },
   serviceName: "ControlPlane",
-  environment: "staging",
+  environment,
 });
 
 Aspects.of(app).add(new AwsSolutionsChecks());

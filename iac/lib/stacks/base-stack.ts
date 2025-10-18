@@ -1,8 +1,7 @@
 import { Stack, StackProps, Tags } from "aws-cdk-lib";
-import { CfnBudget } from "aws-cdk-lib/aws-budgets";
 import { Construct } from "constructs";
 
-type Environment = "prod" | "staging";
+export type Environment = "prod" | "staging";
 
 export interface BaseStackProps extends StackProps {
   /** Name of the service associated with this Stack, e.g. Compute */
