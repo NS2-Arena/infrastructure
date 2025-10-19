@@ -17,12 +17,12 @@
   "context": {
     "targetRegions": [
       {
-        "name": "eu-west-2",
-        "area": "London"
+        "region": "eu-west-2",
+        "name": "London"
       },
       {
-        "name": "us-east-1",
-        "area": "NVirginia"
+        "region": "us-east-1",
+        "name": "NVirginia"
       }
     ],
     "@aws-cdk/aws-signer:signingProfileNamePassedToCfn": true,

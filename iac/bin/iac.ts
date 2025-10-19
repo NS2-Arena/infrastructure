@@ -8,39 +8,72 @@ import {
 } from "cdk-nag";
 import { EcrRegistryStack } from "../lib/stacks/ecr-registry-stack";
 import { NS2ArenaCompute } from "../lib/stacks/compute-stack";
-import { Environment } from "../lib/stacks/base-stack";
-
-interface RegionInfo {
-  name: string;
-  area: string;
-}
+import { ReplicatedConfigBucketStack } from "../lib/stacks/replicated-config-bucket-stack";
+import { SourceConfigBucketStack } from "../lib/stacks/source-config-bucket-stack";
+import { Variables } from "./variables";
 
 const app = new App();
 
-const regions: RegionInfo[] = app.node.tryGetContext(
-  "targetRegions"
-) as RegionInfo[];
+const regions = Variables.getTargetRegions(app);
+const environment = Variables.getEnvironment();
 
-const environment: Environment = "staging";
+const nonMainRegions = regions.filter(
+  (regionInfo) => regionInfo.region !== process.env.CDK_DEFAULT_REGION
+);
 
-new EcrRegistryStack(app, "EcrStack", {
+const replicatedBucketStacks = nonMainRegions.map(
+  (regionInfo) =>
+    new ReplicatedConfigBucketStack(
+      app,
+      `ReplicatedConfigBucket${regionInfo.name}`,
+      {
+        env: {
+          account: process.env.CDK_DEFAULT_ACCOUNT,
+          region: regionInfo.region,
+        },
+        serviceName: "ReplicatedConfigBucket",
+        environment,
+      }
+    )
+);
+
+const sourceBucketStack = new SourceConfigBucketStack(
+  app,
+  "SourceConfigBucket",
+  {
+    env: {
+      account: process.env.CDK_DEFAULT_ACCOUNT,
+      region: process.env.CDK_DEFAULT_REGION,
+    },
+    serviceName: "SourceConfigBucket",
+    environment,
+    destinationRegions: nonMainRegions,
+  }
+);
+
+replicatedBucketStacks.forEach((stack) => {
+  sourceBucketStack.addDependency(
+    stack,
+    "Requires destination buckets to be setup first in order to setup replication"
+  );
+});
+
+new EcrRegistryStack(app, "EcrStorage", {
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: process.env.CDK_DEFAULT_REGION,
   },
   serviceName: "ECR",
   environment,
-  replicationRegions: regions
-    .map((region) => region.name)
-    .filter((region) => region !== process.env.CDK_DEFAULT_REGION),
+  replicationRegions: nonMainRegions.map((region) => region.region),
 });
 
 // TODO: Use StackSets when Compute is stable
 regions.forEach((region) => {
-  new NS2ArenaCompute(app, `Compute${region.area}`, {
+  new NS2ArenaCompute(app, `Compute${region.name}`, {
     env: {
       account: process.env.CDK_DEFAULT_ACCOUNT,
-      region: region.name,
+      region: region.region,
     },
     serviceName: "Compute",
     environment,
