@@ -29,7 +29,7 @@ export class EcrReRepositoryStack extends BaseStack {
         {
           rulePriority: 1,
           tagStatus: TagStatus.UNTAGGED,
-          maxImageCount: 0,
+          maxImageCount: 1,
         },
       ],
     });

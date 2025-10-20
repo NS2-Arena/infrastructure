@@ -20,10 +20,5 @@ export class ReplicatedConfigBucketStack extends BaseStack {
           "This is a replicating bucket, it doesn't need replication enabled",
       },
     ]);
-
-    new StringParameter(this, "BucketArnParameter", {
-      stringValue: this.bucket.bucketArn,
-      parameterName: "/NS2Arena/ConfigBucket/Arn",
-    });
   }
 }

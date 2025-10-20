@@ -1,22 +1,31 @@
-import { RemovalPolicy } from "aws-cdk-lib";
+import { RemovalPolicy, Stack } from "aws-cdk-lib";
 import {
   BlockPublicAccess,
   Bucket,
   BucketEncryption,
   BucketProps,
 } from "aws-cdk-lib/aws-s3";
+import { StringParameter } from "aws-cdk-lib/aws-ssm";
 import { NagSuppressions } from "cdk-nag";
 import { Construct } from "constructs";
 
 export class ConfigBucket extends Bucket {
   constructor(scope: Construct, id: string, props?: BucketProps) {
+    const stack = Stack.of(scope);
+
     super(scope, id, {
+      bucketName: `ns2server-configs-${stack.account}-${stack.region}`,
       versioned: true,
       encryption: BucketEncryption.S3_MANAGED,
       blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
       removalPolicy: RemovalPolicy.DESTROY,
       enforceSSL: true,
       ...props,
+    });
+
+    new StringParameter(this, "BucketArnParameter", {
+      stringValue: this.bucketArn,
+      parameterName: "/NS2Arena/ConfigBucket/Arn",
     });
 
     NagSuppressions.addResourceSuppressions(
