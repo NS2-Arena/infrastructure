@@ -5,6 +5,8 @@ import NS2ServerTaskDefinition from "../features/serverless-ns2-server/task-defi
 import NS2ArenaCluster from "../features/serverless-ns2-server/cluster";
 import NS2ServerSecurityGroup from "../features/serverless-ns2-server/security-group";
 import { BaseStack, BaseStackProps } from "./base-stack";
+import { Bucket } from "aws-cdk-lib/aws-s3";
+import { StringParameter } from "aws-cdk-lib/aws-ssm";
 
 export class NS2ArenaCompute extends BaseStack {
   constructor(scope: Construct, id: string, props: BaseStackProps) {
@@ -18,8 +20,21 @@ export class NS2ArenaCompute extends BaseStack {
       "ns2arena/ns2-server"
     );
 
+    const configBucketArn = StringParameter.fromStringParameterName(
+      this,
+      "ConfigBucketParameter",
+      "/NS2Arena/ConfigBucket/Arn"
+    ).stringValue;
+
+    const configBucket = Bucket.fromBucketArn(
+      this,
+      "ConfigBucket",
+      configBucketArn
+    );
+
     new NS2ServerTaskDefinition(this, "NS2ServerTaskDefinition", {
       ns2ServerRepo,
+      configBucket,
     });
     new NS2ArenaCluster(this, "NS2ServerCluster", { vpc });
     new NS2ServerSecurityGroup(this, "NS2ServerSecurityGroup", { vpc });

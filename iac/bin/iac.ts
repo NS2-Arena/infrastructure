@@ -70,7 +70,7 @@ new EcrReRepositoryStack(app, "EcrRepository", {
 
 // TODO: Use StackSets when Compute is stable
 regions.forEach((region) => {
-  new NS2ArenaCompute(app, `Compute${region.name}`, {
+  const stack = new NS2ArenaCompute(app, `Compute${region.name}`, {
     env: {
       account: process.env.CDK_DEFAULT_ACCOUNT,
       region: region.region,
@@ -78,6 +78,8 @@ regions.forEach((region) => {
     serviceName: "Compute",
     environment,
   });
+
+  stack.addDependency(sourceBucketStack);
 });
 
 new NS2ArenaControlPlane(app, "ControlPlane", {

@@ -28,6 +28,11 @@ export class ConfigBucket extends Bucket {
       parameterName: "/NS2Arena/ConfigBucket/Arn",
     });
 
+    new StringParameter(this, "BucketNameParameter", {
+      stringValue: this.bucketName,
+      parameterName: "/NS2Arena/ConfigBucket/Name",
+    });
+
     NagSuppressions.addResourceSuppressions(
       this,
       ["AwsSolutions-S1", "NIST.800.53.R5-S3BucketLoggingEnabled"].map(

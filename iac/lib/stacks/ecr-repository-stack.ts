@@ -28,7 +28,7 @@ export class EcrReRepositoryStack extends BaseStack {
       lifecycleRules: [
         {
           rulePriority: 1,
-          tagStatus: TagStatus.UNTAGGED,
+          tagStatus: TagStatus.ANY,
           maxImageCount: 1,
         },
       ],
