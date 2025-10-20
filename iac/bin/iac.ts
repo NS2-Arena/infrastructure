@@ -6,7 +6,7 @@ import {
   NIST80053R5Checks,
   ServerlessChecks,
 } from "cdk-nag";
-import { EcrRegistryStack } from "../lib/stacks/ecr-registry-stack";
+import { EcrReRepositoryStack } from "../lib/stacks/ecr-repository-stack";
 import { NS2ArenaCompute } from "../lib/stacks/compute-stack";
 import { ReplicatedConfigBucketStack } from "../lib/stacks/replicated-config-bucket-stack";
 import { SourceConfigBucketStack } from "../lib/stacks/source-config-bucket-stack";
@@ -58,7 +58,7 @@ replicatedBucketStacks.forEach((stack) => {
   );
 });
 
-new EcrRegistryStack(app, "EcrStorage", {
+new EcrReRepositoryStack(app, "EcrRepository", {
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: process.env.CDK_DEFAULT_REGION,
