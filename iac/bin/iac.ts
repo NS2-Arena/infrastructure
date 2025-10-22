@@ -31,6 +31,7 @@ const replicatedBucketStacks = nonMainRegions.map(
           account: process.env.CDK_DEFAULT_ACCOUNT,
           region: regionInfo.region,
         },
+        stackName: "ReplicatedConfigBucket",
         serviceName: "ReplicatedConfigBucket",
         environment,
       }
@@ -68,13 +69,13 @@ new EcrReRepositoryStack(app, "EcrRepository", {
   replicationRegions: nonMainRegions.map((region) => region.region),
 });
 
-// TODO: Use StackSets when Compute is stable
 regions.forEach((region) => {
   const stack = new NS2ArenaCompute(app, `Compute${region.name}`, {
     env: {
       account: process.env.CDK_DEFAULT_ACCOUNT,
       region: region.region,
     },
+    stackName: "Compute",
     serviceName: "Compute",
     environment,
   });
