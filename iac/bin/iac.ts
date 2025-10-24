@@ -11,6 +11,9 @@ import { NS2ArenaCompute } from "../lib/stacks/compute-stack";
 import { ReplicatedConfigBucketStack } from "../lib/stacks/replicated-config-bucket-stack";
 import { SourceConfigBucketStack } from "../lib/stacks/source-config-bucket-stack";
 import { Variables } from "./variables";
+import { servicesVersion } from "typescript";
+import { ServiceNamespace } from "aws-cdk-lib/aws-applicationautoscaling";
+import { DatabaseStack } from "../lib/stacks/database-stack";
 
 const app = new App();
 
@@ -81,6 +84,15 @@ regions.forEach((region) => {
   });
 
   stack.addDependency(sourceBucketStack);
+});
+
+new DatabaseStack(app, "DatabaseTables", {
+  env: {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+    region: process.env.CDK_DEFAULT_REGION,
+  },
+  serviceName: "DatabaseTables",
+  environment,
 });
 
 new RestApiStack(app, "RestApi", {
