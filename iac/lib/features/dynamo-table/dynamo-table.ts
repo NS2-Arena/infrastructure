@@ -4,9 +4,9 @@ import {
   Table,
   TableProps,
 } from "aws-cdk-lib/aws-dynamodb";
-import { StringParameter } from "aws-cdk-lib/aws-ssm";
 import { NagSuppressions } from "cdk-nag";
 import { Construct } from "constructs";
+import { SSMParameterWriter } from "../ssm-parameter-management/ssm-parameter-writer";
 
 interface NS2ArenaDynamoTableProps {
   readonly tableName: string;
@@ -31,12 +31,12 @@ export class NS2ArenaDynamoTable extends Construct {
       billingMode: BillingMode.PAY_PER_REQUEST,
     });
 
-    new StringParameter(this, "TableNameParameter", {
+    SSMParameterWriter.writeStringParameter(this, "TableNameParameter", {
       stringValue: table.tableName,
       parameterName: `/NS2Arena/Tables/${tableName}/Name`,
     });
 
-    new StringParameter(this, "TableArnParameter", {
+    SSMParameterWriter.writeStringParameter(this, "TableArnParameter", {
       stringValue: table.tableArn,
       parameterName: `/NS2Arena/Tables/${tableName}/Arn`,
     });

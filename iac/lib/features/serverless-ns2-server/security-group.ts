@@ -1,7 +1,7 @@
 import { IVpc, Peer, Port, SecurityGroup } from "aws-cdk-lib/aws-ec2";
 import { Construct } from "constructs";
 import { NagSuppressions } from "cdk-nag";
-import { StringParameter } from "aws-cdk-lib/aws-ssm";
+import { SSMParameterWriter } from "../ssm-parameter-management/ssm-parameter-writer";
 
 type NS2ServerSecurityGroupProps = {
   vpc: IVpc;
@@ -31,7 +31,7 @@ export default class NS2ServerSecurityGroup extends Construct {
       "Allow UDP access"
     );
 
-    new StringParameter(this, "SecurityGroupArn", {
+    SSMParameterWriter.writeStringParameter(this, "SecurityGroupArn", {
       stringValue: securityGroup.securityGroupId,
       parameterName: "/NS2Arena/TaskDefinition/SecurityGroup/Id",
     });

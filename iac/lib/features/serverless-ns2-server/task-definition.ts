@@ -17,9 +17,9 @@ import {
 } from "aws-cdk-lib/aws-iam";
 import { RetentionDays } from "aws-cdk-lib/aws-logs";
 import { IBucket } from "aws-cdk-lib/aws-s3";
-import { StringParameter } from "aws-cdk-lib/aws-ssm";
 import { NagSuppressions } from "cdk-nag";
 import { Construct } from "constructs";
+import { SSMParameterWriter } from "../ssm-parameter-management/ssm-parameter-writer";
 
 type NS2ServerTaskDefinitionProps = {
   ns2ServerRepo: IRepository;
@@ -138,20 +138,32 @@ export default class NS2ServerTaskDefinition extends Construct {
       }),
     });
 
-    new StringParameter(this, "TaskDefinitionArnParameter", {
-      stringValue: taskDefinition.taskDefinitionArn,
-      parameterName: "/NS2Arena/TaskDefinition/Arn",
-    });
+    SSMParameterWriter.writeStringParameter(
+      this,
+      "TaskDefinitionArnParameter",
+      {
+        stringValue: taskDefinition.taskDefinitionArn,
+        parameterName: "/NS2Arena/TaskDefinition/Arn",
+      }
+    );
 
-    new StringParameter(this, "TaskDefinitionTaskRoleArnParameter", {
-      stringValue: ns2ServerTaskRole.roleArn,
-      parameterName: "/NS2Arena/TaskDefinition/TaskRole/Arn",
-    });
+    SSMParameterWriter.writeStringParameter(
+      this,
+      "TaskDefinitionTaskRoleArnParameter",
+      {
+        stringValue: ns2ServerTaskRole.roleArn,
+        parameterName: "/NS2Arena/TaskDefinition/TaskRole/Arn",
+      }
+    );
 
-    new StringParameter(this, "TaskDefinitionExecutionRoleArnParameter", {
-      stringValue: ns2ServerTDExecutionRole.roleArn,
-      parameterName: "/NS2Arena/TaskDefinition/ExecutionRole/Arn",
-    });
+    SSMParameterWriter.writeStringParameter(
+      this,
+      "TaskDefinitionExecutionRoleArnParameter",
+      {
+        stringValue: ns2ServerTDExecutionRole.roleArn,
+        parameterName: "/NS2Arena/TaskDefinition/ExecutionRole/Arn",
+      }
+    );
 
     NagSuppressions.addResourceSuppressions(
       taskDefinition,

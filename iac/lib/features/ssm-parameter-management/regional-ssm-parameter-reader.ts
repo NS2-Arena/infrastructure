@@ -7,6 +7,7 @@ import {
 } from "aws-cdk-lib/custom-resources";
 import { NagPackSuppression, NagSuppressions } from "cdk-nag";
 import { Construct } from "constructs";
+import { SSMDependencyTracker } from "./ssm-dependency-tracker";
 
 interface SSMParameterReaderProps {
   parameterName: string;
@@ -17,7 +18,7 @@ function removeLeadingSlash(value: string): string {
   return value.slice(0, 1) == "/" ? value.slice(1) : value;
 }
 
-export class SSMParameterReader extends AwsCustomResource {
+export class RegionalSSMParameterReader extends AwsCustomResource {
   constructor(scope: Construct, id: string, props: SSMParameterReaderProps) {
     const { parameterName, region } = props;
 
@@ -46,6 +47,12 @@ export class SSMParameterReader extends AwsCustomResource {
     });
 
     super(scope, id, { onUpdate: ssmAwsSdkCall, policy: ssmCrPolicy });
+
+    SSMDependencyTracker.getInstance().registerConsumer(
+      Stack.of(this),
+      parameterName,
+      region
+    );
 
     NagSuppressions.addResourceSuppressions(
       this,

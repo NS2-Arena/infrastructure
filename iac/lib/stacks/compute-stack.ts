@@ -7,6 +7,7 @@ import NS2ServerSecurityGroup from "../features/serverless-ns2-server/security-g
 import { BaseStack, BaseStackProps } from "./base-stack";
 import { Bucket } from "aws-cdk-lib/aws-s3";
 import { StringParameter } from "aws-cdk-lib/aws-ssm";
+import { SSMParameterReader } from "../features/ssm-parameter-management/ssm-parameter-reader";
 
 export class NS2ArenaCompute extends BaseStack {
   constructor(scope: Construct, id: string, props: BaseStackProps) {
@@ -20,11 +21,11 @@ export class NS2ArenaCompute extends BaseStack {
       "ns2arena/ns2-server"
     );
 
-    const configBucketArn = StringParameter.fromStringParameterName(
+    const configBucketArn = SSMParameterReader.readStringParameter(
       this,
       "ConfigBucketParameter",
       "/NS2Arena/ConfigBucket/Arn"
-    ).stringValue;
+    );
 
     const configBucket = Bucket.fromBucketArn(
       this,

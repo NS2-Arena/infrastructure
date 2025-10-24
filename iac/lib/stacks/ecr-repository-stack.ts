@@ -7,7 +7,7 @@ import {
 } from "aws-cdk-lib/aws-ecr";
 import { Construct } from "constructs";
 import { BaseStack, BaseStackProps } from "./base-stack";
-import { StringParameter } from "aws-cdk-lib/aws-ssm";
+import { SSMParameterWriter } from "../features/ssm-parameter-management/ssm-parameter-writer";
 
 interface EcrRegistryStackProps extends BaseStackProps {
   readonly replicationRegions: string[];
@@ -34,7 +34,7 @@ export class EcrReRepositoryStack extends BaseStack {
       ],
     });
 
-    new StringParameter(this, "RegistryParameter", {
+    SSMParameterWriter.writeStringParameter(this, "RegistryParameter", {
       stringValue: this.repository.repositoryName,
       parameterName: "/NS2Arena/ImageRepositories/ns2-server",
     });

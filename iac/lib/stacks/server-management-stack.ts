@@ -20,8 +20,9 @@ import {
   Role,
   ServicePrincipal,
 } from "aws-cdk-lib/aws-iam";
-import { SSMParameterReader } from "../features/global-ssm-parameter/read-ssm-parameter";
+import { RegionalSSMParameterReader } from "../features/ssm-parameter-management/regional-ssm-parameter-reader";
 import { Vpc } from "aws-cdk-lib/aws-ec2";
+import { SSMParameterReader } from "../features/ssm-parameter-management/ssm-parameter-reader";
 
 interface ServerManagementStackProps extends BaseStackProps {
   readonly mainRegion: string;
@@ -41,45 +42,45 @@ export class ServerManagementStack extends BaseStack {
     let tableArn: string;
 
     if (mainRegion !== props.env?.region) {
-      tableArn = new SSMParameterReader(this, "ServerTableArn", {
+      tableArn = new RegionalSSMParameterReader(this, "ServerTableArn", {
         parameterName: tableArnParameter,
         region: mainRegion,
       }).getParameterValue();
     } else {
-      tableArn = StringParameter.fromStringParameterName(
+      tableArn = SSMParameterReader.readStringParameter(
         this,
         "ServerTableArn",
         tableArnParameter
-      ).stringValue;
+      );
     }
 
-    const clusterArn = StringParameter.fromStringParameterName(
+    const clusterArn = SSMParameterReader.readStringParameter(
       this,
       "ClusterArn",
       "/NS2Arena/Cluster/Arn"
-    ).stringValue;
-    const taskDefinitionArn = StringParameter.fromStringParameterName(
+    );
+    const taskDefinitionArn = SSMParameterReader.readStringParameter(
       this,
       "TaskDefinitionArn",
       "/NS2Arena/TaskDefinition/Arn"
-    ).stringValue;
-    const taskDefinitionTaskRoleArn = StringParameter.fromStringParameterName(
+    );
+    const taskDefinitionTaskRoleArn = SSMParameterReader.readStringParameter(
       this,
       "TaskDefinitionTaskRoleArn",
       "/NS2Arena/TaskDefinition/TaskRole/Arn"
-    ).stringValue;
+    );
     const taskDefinitionExecutionRoleArn =
-      StringParameter.fromStringParameterName(
+      SSMParameterReader.readStringParameter(
         this,
         "TaskDefinitionExecutionRoleArn",
         "/NS2Arena/TaskDefinition/ExecutionRole/Arn"
-      ).stringValue;
+      );
     const taskDefinitionSecurityGroupArn =
-      StringParameter.fromStringParameterName(
+      SSMParameterReader.readStringParameter(
         this,
         "TaskDefinitionSecurityGroup",
         "/NS2Arena/TaskDefinition/SecurityGroup/Id"
-      ).stringValue;
+      );
 
     const serverTable = Table.fromTableArn(this, "ServersTable", tableArn);
 

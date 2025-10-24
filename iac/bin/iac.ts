@@ -13,6 +13,7 @@ import { SourceConfigBucketStack } from "../lib/stacks/source-config-bucket-stac
 import { Variables } from "./variables";
 import { DatabaseStack } from "../lib/stacks/database-stack";
 import { ServerManagementStack } from "../lib/stacks/server-management-stack";
+import { SSMDependencyTracker } from "../lib/features/ssm-parameter-management/ssm-dependency-tracker";
 
 const app = new App();
 
@@ -24,42 +25,56 @@ const nonMainRegions = regions.filter(
   (regionInfo) => regionInfo.region !== mainRegion
 );
 
-const replicatedBucketStacks = nonMainRegions.map(
-  (regionInfo) =>
-    new ReplicatedConfigBucketStack(
-      app,
-      `ReplicatedConfigBucket${regionInfo.name}`,
-      {
-        env: {
-          account: process.env.CDK_DEFAULT_ACCOUNT,
-          region: regionInfo.region,
-        },
-        stackName: "ReplicatedConfigBucket",
-        serviceName: "ReplicatedConfigBucket",
-        environment,
-      }
-    )
-);
+// Non main region stacks
+nonMainRegions.forEach((regionInfo) => {
+  new ReplicatedConfigBucketStack(
+    app,
+    `ReplicatedConfigBucket${regionInfo.name}`,
+    {
+      env: {
+        account: process.env.CDK_DEFAULT_ACCOUNT,
+        region: regionInfo.region,
+      },
+      stackName: "ReplicatedConfigBucket",
+      serviceName: "ReplicatedConfigBucket",
+      environment,
+    }
+  );
+});
 
-const sourceBucketStack = new SourceConfigBucketStack(
-  app,
-  "SourceConfigBucket",
-  {
+// All region stacks
+regions.forEach((region) => {
+  new NS2ArenaCompute(app, `Compute${region.name}`, {
     env: {
       account: process.env.CDK_DEFAULT_ACCOUNT,
-      region: process.env.CDK_DEFAULT_REGION,
+      region: region.region,
     },
-    serviceName: "SourceConfigBucket",
+    stackName: "Compute",
+    serviceName: "Compute",
     environment,
-    destinationRegions: nonMainRegions,
-  }
-);
+  });
 
-replicatedBucketStacks.forEach((stack) => {
-  sourceBucketStack.addDependency(
-    stack,
-    "Requires destination buckets to be setup first in order to setup replication"
-  );
+  new ServerManagementStack(app, `ServerManagement${region.name}`, {
+    env: {
+      account: process.env.CDK_DEFAULT_ACCOUNT,
+      region: region.region,
+    },
+    stackName: "ServerManagement",
+    serviceName: "ServerManagement",
+    environment,
+    mainRegion,
+  });
+});
+
+// Main region only stacks
+new SourceConfigBucketStack(app, "SourceConfigBucket", {
+  env: {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+    region: process.env.CDK_DEFAULT_REGION,
+  },
+  serviceName: "SourceConfigBucket",
+  environment,
+  destinationRegions: nonMainRegions,
 });
 
 new EcrReRepositoryStack(app, "EcrRepository", {
@@ -72,50 +87,13 @@ new EcrReRepositoryStack(app, "EcrRepository", {
   replicationRegions: nonMainRegions.map((region) => region.region),
 });
 
-const computeStacks = regions.map((region) => {
-  const stack = new NS2ArenaCompute(app, `Compute${region.name}`, {
-    env: {
-      account: process.env.CDK_DEFAULT_ACCOUNT,
-      region: region.region,
-    },
-    stackName: "Compute",
-    serviceName: "Compute",
-    environment,
-  });
-
-  stack.addDependency(sourceBucketStack);
-
-  return stack;
-});
-
-const databaseStack = new DatabaseStack(app, "DatabaseTables", {
+new DatabaseStack(app, "DatabaseTables", {
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: process.env.CDK_DEFAULT_REGION,
   },
   serviceName: "DatabaseTables",
   environment,
-});
-
-const serverManagementStacks = regions.map((region) => {
-  const serverManagementStack = new ServerManagementStack(
-    app,
-    `ServerManagement${region.name}`,
-    {
-      env: {
-        account: process.env.CDK_DEFAULT_ACCOUNT,
-        region: region.region,
-      },
-      stackName: "ServerManagement",
-      serviceName: "ServerManagement",
-      environment,
-      mainRegion,
-    }
-  );
-  serverManagementStack.addDependency(databaseStack);
-  computeStacks.forEach((stack) => serverManagementStack.addDependency(stack));
-
-  return serverManagementStack;
 });
 
 new RestApiStack(app, "RestApi", {
@@ -130,6 +108,8 @@ new RestApiStack(app, "RestApi", {
 // Create cognito user pool
 // Create lobby step function workflow
 // Create DynamoDB store
+
+SSMDependencyTracker.getInstance().applyStackDependencies();
 
 Aspects.of(app).add(new AwsSolutionsChecks());
 Aspects.of(app).add(new ServerlessChecks());

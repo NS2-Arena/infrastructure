@@ -1,7 +1,7 @@
 import { Cluster, ContainerInsights } from "aws-cdk-lib/aws-ecs";
 import { Construct } from "constructs";
 import { IVpc } from "aws-cdk-lib/aws-ec2";
-import { StringParameter } from "aws-cdk-lib/aws-ssm";
+import { SSMParameterWriter } from "../ssm-parameter-management/ssm-parameter-writer";
 
 type NS2ArenaClusterProps = {
   vpc: IVpc;
@@ -16,7 +16,7 @@ export default class NS2ArenaCluster extends Construct {
       containerInsightsV2: ContainerInsights.ENABLED,
     });
 
-    new StringParameter(this, "ClusterArn", {
+    SSMParameterWriter.writeStringParameter(this, "ClusterArn", {
       stringValue: cluster.clusterArn,
       parameterName: "/NS2Arena/Cluster/Arn",
     });

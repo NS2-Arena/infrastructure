@@ -4,7 +4,7 @@ import { Bucket, IBucket } from "aws-cdk-lib/aws-s3";
 import { Role, ServicePrincipal } from "aws-cdk-lib/aws-iam";
 import { NagSuppressions } from "cdk-nag";
 import { ConfigBucket } from "../features/config-bucket/config-bucket";
-import { SSMParameterReader } from "../features/global-ssm-parameter/read-ssm-parameter";
+import { RegionalSSMParameterReader } from "../features/ssm-parameter-management/regional-ssm-parameter-reader";
 import { RegionInfo } from "../../bin/variables";
 
 interface SourceConfigBucketStackProps extends BaseStackProps {
@@ -21,7 +21,7 @@ export class SourceConfigBucketStack extends BaseStack {
 
     const destinationBuckets: IBucket[] = props.destinationRegions.map(
       (regionInfo) => {
-        const arn = new SSMParameterReader(
+        const arn = new RegionalSSMParameterReader(
           this,
           `DestinationBucketParameter${regionInfo.name}`,
           {
