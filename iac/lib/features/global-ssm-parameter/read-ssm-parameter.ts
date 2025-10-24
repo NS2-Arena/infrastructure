@@ -67,14 +67,14 @@ export class SSMParameterReader extends AwsCustomResource {
     const customResourceId = `AWS${AwsCustomResource.PROVIDER_FUNCTION_UUID.split(
       "-"
     ).join("")}`;
-    const stackName = stack.stackName;
+    const stackLogicalId = stack.node.id;
 
     const suppressions: {
       path: string;
       nagSupressions: NagPackSuppression[];
     }[] = [
       {
-        path: `/${stackName}/${customResourceId}/ServiceRole/Resource`,
+        path: `/${stackLogicalId}/${customResourceId}/ServiceRole/Resource`,
         nagSupressions: [
           {
             id: "AwsSolutions-IAM4",
@@ -86,7 +86,7 @@ export class SSMParameterReader extends AwsCustomResource {
         ],
       },
       {
-        path: `/${stackName}/${customResourceId}/Resource`,
+        path: `/${stackLogicalId}/${customResourceId}/Resource`,
         nagSupressions: [
           { id: "Serverless-LambdaDefaultMemorySize", reason },
           { id: "Serverless-LambdaDLQ", reason },
@@ -97,7 +97,7 @@ export class SSMParameterReader extends AwsCustomResource {
         ],
       },
       {
-        path: `/${stackName}/${customResourceId}/LogGroup/Resource`,
+        path: `/${stackLogicalId}/${customResourceId}/LogGroup/Resource`,
         nagSupressions: [
           { id: "NIST.800.53.R5-CloudWatchLogGroupEncrypted", reason },
         ],

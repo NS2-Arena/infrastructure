@@ -11,17 +11,17 @@ import { NS2ArenaCompute } from "../lib/stacks/compute-stack";
 import { ReplicatedConfigBucketStack } from "../lib/stacks/replicated-config-bucket-stack";
 import { SourceConfigBucketStack } from "../lib/stacks/source-config-bucket-stack";
 import { Variables } from "./variables";
-import { servicesVersion } from "typescript";
-import { ServiceNamespace } from "aws-cdk-lib/aws-applicationautoscaling";
 import { DatabaseStack } from "../lib/stacks/database-stack";
+import { ServerManagementStack } from "../lib/stacks/server-management-stack";
 
 const app = new App();
 
 const regions = Variables.getTargetRegions(app);
 const environment = Variables.getEnvironment();
 
+const mainRegion = process.env.CDK_DEFAULT_REGION!;
 const nonMainRegions = regions.filter(
-  (regionInfo) => regionInfo.region !== process.env.CDK_DEFAULT_REGION
+  (regionInfo) => regionInfo.region !== mainRegion
 );
 
 const replicatedBucketStacks = nonMainRegions.map(
@@ -72,7 +72,7 @@ new EcrReRepositoryStack(app, "EcrRepository", {
   replicationRegions: nonMainRegions.map((region) => region.region),
 });
 
-regions.forEach((region) => {
+const computeStacks = regions.map((region) => {
   const stack = new NS2ArenaCompute(app, `Compute${region.name}`, {
     env: {
       account: process.env.CDK_DEFAULT_ACCOUNT,
@@ -84,15 +84,38 @@ regions.forEach((region) => {
   });
 
   stack.addDependency(sourceBucketStack);
+
+  return stack;
 });
 
-new DatabaseStack(app, "DatabaseTables", {
+const databaseStack = new DatabaseStack(app, "DatabaseTables", {
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: process.env.CDK_DEFAULT_REGION,
   },
   serviceName: "DatabaseTables",
   environment,
+});
+
+const serverManagementStacks = regions.map((region) => {
+  const serverManagementStack = new ServerManagementStack(
+    app,
+    `ServerManagement${region.name}`,
+    {
+      env: {
+        account: process.env.CDK_DEFAULT_ACCOUNT,
+        region: region.region,
+      },
+      stackName: "ServerManagement",
+      serviceName: "ServerManagement",
+      environment,
+      mainRegion,
+    }
+  );
+  serverManagementStack.addDependency(databaseStack);
+  computeStacks.forEach((stack) => serverManagementStack.addDependency(stack));
+
+  return serverManagementStack;
 });
 
 new RestApiStack(app, "RestApi", {

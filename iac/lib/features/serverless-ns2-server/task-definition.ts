@@ -17,6 +17,7 @@ import {
 } from "aws-cdk-lib/aws-iam";
 import { RetentionDays } from "aws-cdk-lib/aws-logs";
 import { IBucket } from "aws-cdk-lib/aws-s3";
+import { StringParameter } from "aws-cdk-lib/aws-ssm";
 import { NagSuppressions } from "cdk-nag";
 import { Construct } from "constructs";
 
@@ -26,8 +27,6 @@ type NS2ServerTaskDefinitionProps = {
 };
 
 export default class NS2ServerTaskDefinition extends Construct {
-  public taskDefinition: FargateTaskDefinition;
-
   constructor(
     scope: Construct,
     id: string,
@@ -112,7 +111,7 @@ export default class NS2ServerTaskDefinition extends Construct {
       managedPolicies: [taskRolePolicy],
     });
 
-    this.taskDefinition = new FargateTaskDefinition(this, "TaskDefinition", {
+    const taskDefinition = new FargateTaskDefinition(this, "TaskDefinition", {
       runtimePlatform: {
         cpuArchitecture: CpuArchitecture.X86_64,
         operatingSystemFamily: OperatingSystemFamily.LINUX,
@@ -123,7 +122,7 @@ export default class NS2ServerTaskDefinition extends Construct {
       taskRole: ns2ServerTaskRole.withoutPolicyUpdates(),
     });
 
-    this.taskDefinition.addContainer("ns2-server", {
+    taskDefinition.addContainer("ns2-server", {
       image: ContainerImage.fromEcrRepository(ns2ServerRepo),
       portMappings: [
         { containerPort: 27015, hostPort: 27015, protocol: Protocol.TCP },
@@ -139,8 +138,23 @@ export default class NS2ServerTaskDefinition extends Construct {
       }),
     });
 
+    new StringParameter(this, "TaskDefinitionArnParameter", {
+      stringValue: taskDefinition.taskDefinitionArn,
+      parameterName: "/NS2Arena/TaskDefinition/Arn",
+    });
+
+    new StringParameter(this, "TaskDefinitionTaskRoleArnParameter", {
+      stringValue: ns2ServerTaskRole.roleArn,
+      parameterName: "/NS2Arena/TaskDefinition/TaskRole/Arn",
+    });
+
+    new StringParameter(this, "TaskDefinitionExecutionRoleArnParameter", {
+      stringValue: ns2ServerTDExecutionRole.roleArn,
+      parameterName: "/NS2Arena/TaskDefinition/ExecutionRole/Arn",
+    });
+
     NagSuppressions.addResourceSuppressions(
-      this.taskDefinition,
+      taskDefinition,
       [
         {
           id: "NIST.800.53.R5-CloudWatchLogGroupEncrypted",

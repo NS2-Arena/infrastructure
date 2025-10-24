@@ -7,7 +7,7 @@ export class DatabaseStack extends BaseStack {
     super(scope, id, props);
 
     new NS2ArenaDynamoTable(this, "ServersTable", {
-      name: "Servers",
+      tableName: "Servers",
     });
   }
 }
