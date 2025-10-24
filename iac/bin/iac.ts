@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { App, Aspects } from "aws-cdk-lib";
-import { NS2ArenaControlPlane } from "../lib/stacks/controlplane-stack";
+import { RestApiStack } from "../lib/stacks/rest-api-stack";
 import {
   AwsSolutionsChecks,
   NIST80053R5Checks,
@@ -83,14 +83,18 @@ regions.forEach((region) => {
   stack.addDependency(sourceBucketStack);
 });
 
-new NS2ArenaControlPlane(app, "ControlPlane", {
+new RestApiStack(app, "RestApi", {
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: process.env.CDK_DEFAULT_REGION,
   },
-  serviceName: "ControlPlane",
+  serviceName: "RestApi",
   environment,
 });
+
+// Create cognito user pool
+// Create lobby step function workflow
+// Create DynamoDB store
 
 Aspects.of(app).add(new AwsSolutionsChecks());
 Aspects.of(app).add(new ServerlessChecks());
