@@ -1,12 +1,12 @@
 import { Arn, Stack } from "aws-cdk-lib";
 import { IRepository } from "aws-cdk-lib/aws-ecr";
 import {
+  Compatibility,
   ContainerImage,
-  CpuArchitecture,
-  FargateTaskDefinition,
   LogDriver,
-  OperatingSystemFamily,
+  NetworkMode,
   Protocol,
+  TaskDefinition,
 } from "aws-cdk-lib/aws-ecs";
 import {
   Effect,
@@ -111,15 +111,13 @@ export default class NS2ServerTaskDefinition extends Construct {
       managedPolicies: [taskRolePolicy],
     });
 
-    const taskDefinition = new FargateTaskDefinition(this, "TaskDefinition", {
-      runtimePlatform: {
-        cpuArchitecture: CpuArchitecture.X86_64,
-        operatingSystemFamily: OperatingSystemFamily.LINUX,
-      },
-      cpu: 1024,
-      memoryLimitMiB: 4096,
+    const taskDefinition = new TaskDefinition(this, "TaskDefinition", {
+      cpu: "1024",
+      memoryMiB: "1536",
       executionRole: ns2ServerTDExecutionRole.withoutPolicyUpdates(),
       taskRole: ns2ServerTaskRole.withoutPolicyUpdates(),
+      compatibility: Compatibility.EC2,
+      networkMode: NetworkMode.HOST,
     });
 
     taskDefinition.addContainer("ns2-server", {
@@ -127,15 +125,20 @@ export default class NS2ServerTaskDefinition extends Construct {
       portMappings: [
         { containerPort: 27015, hostPort: 27015, protocol: Protocol.TCP },
         { containerPort: 27016, hostPort: 27016, protocol: Protocol.TCP },
+        { containerPort: 27017, hostPort: 27017, protocol: Protocol.TCP },
         { containerPort: 27015, hostPort: 27015, protocol: Protocol.UDP },
         { containerPort: 27016, hostPort: 27016, protocol: Protocol.UDP },
+        { containerPort: 27017, hostPort: 27017, protocol: Protocol.UDP },
       ],
       cpu: 1024,
-      memoryLimitMiB: 4096,
+      memoryLimitMiB: 1536,
       logging: LogDriver.awsLogs({
         streamPrefix: "/NS2Arena/Jobs",
         logRetention: RetentionDays.ONE_WEEK,
       }),
+      essential: true,
+      privileged: true,
+      user: "steam",
     });
 
     SSMParameterWriter.writeStringParameter(

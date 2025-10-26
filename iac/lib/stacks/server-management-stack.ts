@@ -1,7 +1,6 @@
 import { App } from "aws-cdk-lib";
 import { BaseStack, BaseStackProps } from "./base-stack";
 import { Table } from "aws-cdk-lib/aws-dynamodb";
-import { StringParameter } from "aws-cdk-lib/aws-ssm";
 import {
   CustomState,
   DefinitionBody,
@@ -94,47 +93,37 @@ export class ServerManagementStack extends BaseStack {
       stateName: "Create Servers Record",
     });
 
-    // startState.next(
-    //   new EcsRunTask(this, "RunServer", {
-    //     cluster: cluster,
-    //     taskDefinition: taskDefinition,
-    //     launchTarget: new EcsFargateLaunchTarget(),
-    //   })
-    // );
-
-    startState.next(
-      new CustomState(this, "RunServer", {
-        stateJson: {
-          End: true,
-          Type: "Task",
-          Resource: "arn:aws:states:::ecs:runTask",
-          Arguments: {
-            LaunchType: "FARGATE",
-            Cluster: clusterArn,
-            TaskDefinition: taskDefinitionArn,
-            Overrides: {
-              ContainerOverrides: [
-                {
-                  Name: "ns2-server",
-                  Environment: [
-                    { Name: "NAME", Value: "A Test Server" },
-                    { Name: "PASSWORD", Value: "itsabigtest" },
-                    { Name: "LAUNCH_CONFIG", Value: "TestConfig" },
-                  ],
-                },
-              ],
-            },
-            NetworkConfiguration: {
-              AwsvpcConfiguration: {
-                SecurityGroups: [taskDefinitionSecurityGroupArn],
-                Subnets: vpc.publicSubnets.map((subnet) => subnet.subnetId),
-                AssignPublicIp: "ENABLED",
+    const runServer = new CustomState(this, "RunServer", {
+      stateJson: {
+        Type: "Task",
+        Resource: "arn:aws:states:::ecs:runTask",
+        Arguments: {
+          Cluster: clusterArn,
+          TaskDefinition: taskDefinitionArn,
+          Count: 1,
+          EnableECSManagedTags: true,
+          EnableExecuteCommand: false,
+          PlacementStrategy: [
+            { Field: "attribute:ecs.availability-zone", Type: "spread" },
+            { Field: "instanceId", Type: "spread" },
+          ],
+          Overrides: {
+            ContainerOverrides: [
+              {
+                Name: "ns2-server",
+                Environment: [
+                  { Name: "NAME", Value: "A Test Server" },
+                  { Name: "PASSWORD", Value: "itsabigtest" },
+                  { Name: "LAUNCH_CONFIG", Value: "TestConfig" },
+                ],
               },
-            },
+            ],
           },
         },
-      })
-    );
+      },
+    });
+
+    startState.next(runServer);
 
     const policy = new ManagedPolicy(this, "ManageServerLifecyclePolicy", {
       statements: [

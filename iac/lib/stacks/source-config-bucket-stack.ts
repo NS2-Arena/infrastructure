@@ -19,7 +19,21 @@ export class SourceConfigBucketStack extends BaseStack {
   ) {
     super(scope, id, props);
 
-    const destinationBuckets: IBucket[] = props.destinationRegions.map(
+    const { destinationRegions } = props;
+
+    if (destinationRegions.length === 0) {
+      const bucket = new ConfigBucket(this, "SourceConfigBucket");
+
+      NagSuppressions.addResourceSuppressions(bucket, [
+        {
+          id: "NIST.800.53.R5-S3BucketReplicationEnabled",
+          reason: "No other regions to replicate to",
+        },
+      ]);
+      return;
+    }
+
+    const destinationBuckets: IBucket[] = destinationRegions.map(
       (regionInfo) => {
         const arn = new RegionalSSMParameterReader(
           this,

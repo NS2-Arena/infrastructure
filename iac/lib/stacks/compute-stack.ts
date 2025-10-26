@@ -3,10 +3,8 @@ import { Construct } from "constructs";
 import { Vpc } from "aws-cdk-lib/aws-ec2";
 import NS2ServerTaskDefinition from "../features/serverless-ns2-server/task-definition";
 import NS2ArenaCluster from "../features/serverless-ns2-server/cluster";
-import NS2ServerSecurityGroup from "../features/serverless-ns2-server/security-group";
 import { BaseStack, BaseStackProps } from "./base-stack";
 import { Bucket } from "aws-cdk-lib/aws-s3";
-import { StringParameter } from "aws-cdk-lib/aws-ssm";
 import { SSMParameterReader } from "../features/ssm-parameter-management/ssm-parameter-reader";
 
 export class NS2ArenaCompute extends BaseStack {
@@ -38,6 +36,5 @@ export class NS2ArenaCompute extends BaseStack {
       configBucket,
     });
     new NS2ArenaCluster(this, "NS2ServerCluster", { vpc });
-    new NS2ServerSecurityGroup(this, "NS2ServerSecurityGroup", { vpc });
   }
 }
