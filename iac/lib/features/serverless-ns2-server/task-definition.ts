@@ -3,8 +3,10 @@ import { IRepository } from "aws-cdk-lib/aws-ecr";
 import {
   Compatibility,
   ContainerImage,
+  Ec2TaskDefinition,
   LogDriver,
   NetworkMode,
+  PlacementConstraint,
   Protocol,
   TaskDefinition,
 } from "aws-cdk-lib/aws-ecs";
@@ -89,8 +91,22 @@ export default class NS2ServerTaskDefinition extends Construct {
             ),
           ],
         }),
+        new PolicyStatement({
+          actions: ["states:SendTaskSuccess"],
+          effect: Effect.ALLOW,
+          resources: ["*"], // TODO: Lock down
+        }),
       ],
     });
+
+    NagSuppressions.addResourceSuppressions(taskRolePolicy, [
+      {
+        id: "AwsSolutions-IAM5",
+        reason: "Required for ecr:GetAuthorizationToken",
+        appliesTo: ["Resource::*"],
+      },
+    ]);
+
     configBucket.grantRead(taskRolePolicy);
 
     NagSuppressions.addResourceSuppressions(taskRolePolicy, [
@@ -111,13 +127,13 @@ export default class NS2ServerTaskDefinition extends Construct {
       managedPolicies: [taskRolePolicy],
     });
 
-    const taskDefinition = new TaskDefinition(this, "TaskDefinition", {
-      cpu: "1024",
-      memoryMiB: "1536",
+    const taskDefinition = new Ec2TaskDefinition(this, "TaskDefinition", {
       executionRole: ns2ServerTDExecutionRole.withoutPolicyUpdates(),
       taskRole: ns2ServerTaskRole.withoutPolicyUpdates(),
-      compatibility: Compatibility.EC2,
       networkMode: NetworkMode.HOST,
+      placementConstraints: [
+        PlacementConstraint.memberOf("runningTasksCount == 0"),
+      ],
     });
 
     taskDefinition.addContainer("ns2-server", {

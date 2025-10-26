@@ -12,6 +12,7 @@ import {
   InstanceType,
   IVpc,
   LaunchTemplate,
+  LaunchTemplateSpecialVersions,
   MachineImage,
   UserData,
 } from "aws-cdk-lib/aws-ec2";
@@ -20,7 +21,14 @@ import {
   AutoScalingGroup,
   CfnAutoScalingGroup,
 } from "aws-cdk-lib/aws-autoscaling";
-import { InstanceProfile } from "aws-cdk-lib/aws-iam";
+import {
+  Effect,
+  InstanceProfile,
+  ManagedPolicy,
+  PolicyStatement,
+  Role,
+  ServicePrincipal,
+} from "aws-cdk-lib/aws-iam";
 import NS2ServerSecurityGroup from "./security-group";
 import { NagSuppressions } from "cdk-nag";
 import { Metric } from "aws-cdk-lib/aws-cloudwatch";
@@ -49,8 +57,68 @@ export default class NS2ArenaCluster extends Construct {
       }
     );
 
+    const instanceProfilePolicy = new ManagedPolicy(
+      this,
+      "InstanceProfilePolicy",
+      {
+        statements: [
+          new PolicyStatement({
+            effect: Effect.ALLOW,
+            actions: [
+              "ec2:DescribeTags",
+              "ecs:CreateCluster",
+              "ecs:DeregisterContainerInstance",
+              "ecs:DiscoverPollEndpoint",
+              "ecs:Poll",
+              "ecs:RegisterContainerInstance",
+              "ecs:StartTelemetrySession",
+              "ecs:UpdateContainerInstancesState",
+              "ecs:Submit*",
+              "ecr:GetAuthorizationToken",
+              "ecr:BatchCheckLayerAvailability",
+              "ecr:GetDownloadUrlForLayer",
+              "ecr:BatchGetImage",
+              "logs:CreateLogStream",
+              "logs:PutLogEvents",
+            ],
+            resources: ["*"],
+          }),
+          new PolicyStatement({
+            effect: Effect.ALLOW,
+            actions: ["ecs:TagResource"],
+            resources: ["*"],
+            conditions: {
+              StringEquals: {
+                "ecs:CreateAction": [
+                  "CreateCluster",
+                  "RegisterContainerInstance",
+                ],
+              },
+            },
+          }),
+          new PolicyStatement({
+            effect: Effect.ALLOW,
+            actions: ["ecs:ListTagsForResource"],
+            resources: [
+              "arn:aws:ecs:*:*:task/*/*",
+              "arn:aws:ecs:*:*:container-instance/*/*",
+            ],
+          }),
+        ],
+      }
+    );
+    const instanceProfileRole = new Role(this, "InstanceProfileRole", {
+      assumedBy: new ServicePrincipal("ec2.amazonaws.com"),
+      managedPolicies: [instanceProfilePolicy],
+    });
+
     const userData = UserData.forLinux();
-    const instanceProfile = new InstanceProfile(this, "InstanceProfile");
+    userData.addCommands(
+      `echo "ECS_CLUSTER=${cluster.clusterName}" >> /etc/ecs/ecs.config`
+    );
+    const instanceProfile = new InstanceProfile(this, "InstanceProfile", {
+      role: instanceProfileRole,
+    });
 
     const launchTemplate = new LaunchTemplate(this, "LaunchTemplate", {
       machineImage: MachineImage.fromSsmParameter(
@@ -73,26 +141,36 @@ export default class NS2ArenaCluster extends Construct {
       requireImdsv2: true,
     });
 
-    const asg = new AutoScalingGroup(this, "AutoScalingGroup", {
-      vpc,
-      minCapacity: 0,
-      maxCapacity: 5,
-      launchTemplate,
+    SSMParameterWriter.writeStringParameter(this, "LaunchTemplateId", {
+      stringValue: launchTemplate.launchTemplateId!,
+      parameterName: "/NS2Arena/LaunchTemplate/Id",
     });
 
-    const asgProvider = new AsgCapacityProvider(this, "AcgCapacityProvider", {
-      autoScalingGroup: asg,
+    SSMParameterWriter.writeStringParameter(this, "InstanceProfileRoleArn", {
+      stringValue: instanceProfileRole.roleArn,
+      parameterName: "/NS2Arena/InstanceProfile/Role/Arn",
     });
 
-    cluster.addAsgCapacityProvider(asgProvider);
+    // const asg = new AutoScalingGroup(this, "AutoScalingGroup", {
+    //   vpc,
+    //   minCapacity: 0,
+    //   maxCapacity: 5,
+    //   launchTemplate,
+    // });
 
-    cluster.addDefaultCapacityProviderStrategy([
-      {
-        capacityProvider: asgProvider.capacityProviderName,
-        base: 0,
-        weight: 1,
-      },
-    ]);
+    // const asgProvider = new AsgCapacityProvider(this, "AcgCapacityProvider", {
+    //   autoScalingGroup: asg,
+    // });
+
+    // cluster.addAsgCapacityProvider(asgProvider);
+
+    // cluster.addDefaultCapacityProviderStrategy([
+    //   {
+    //     capacityProvider: asgProvider.capacityProviderName,
+    //     base: 0,
+    //     weight: 1,
+    //   },
+    // ]);
 
     // Need to use L1's here as there's no way to disable the default scaling policy...
     // const asg = new CfnAutoScalingGroup(this, "CfnAutoScalingGroup", {
@@ -110,31 +188,34 @@ export default class NS2ArenaCluster extends Construct {
       parameterName: "/NS2Arena/Cluster/Arn",
     });
 
-    NagSuppressions.addResourceSuppressions(
-      instanceProfile,
-      [
-        {
-          id: "AwsSolutions-IAM5",
-          appliesTo: ["Action::ecs:Submit*"],
-          reason: "Required for ecs",
-        },
-        {
-          id: "AwsSolutions-IAM5",
-          appliesTo: ["Resource::*"],
-          reason: "Is locked down with a condition statement",
-        },
-        {
-          id: "NIST.800.53.R5-IAMNoInlinePolicy",
-          reason: "Inline policies are ok in this instance as it's AWS managed",
-        },
-      ],
-      true
-    );
-    NagSuppressions.addResourceSuppressions(asg, [
-      {
-        id: "AwsSolutions-AS3",
-        reason: "Not using notifications at the moment",
-      },
+    // NagSuppressions.addResourceSuppressions(
+    //   instanceProfile,
+    //   [
+    //     {
+    //       id: "AwsSolutions-IAM5",
+    //       appliesTo: ["Action::ecs:Submit*"],
+    //       reason: "Required for ecs",
+    //     },
+    //     {
+    //       id: "AwsSolutions-IAM5",
+    //       appliesTo: ["Resource::*"],
+    //       reason: "Is locked down with a condition statement",
+    //     },
+    //     {
+    //       id: "NIST.800.53.R5-IAMNoInlinePolicy",
+    //       reason: "Inline policies are ok in this instance as it's AWS managed",
+    //     },
+    //   ],
+    //   true
+    // );
+    // NagSuppressions.addResourceSuppressions(asg, [
+    //   {
+    //     id: "AwsSolutions-AS3",
+    //     reason: "Not using notifications at the moment",
+    //   },
+    // ]);
+    NagSuppressions.addResourceSuppressions(instanceProfilePolicy, [
+      { id: "AwsSolutions-IAM5", reason: "It's ok trust me" },
     ]);
   }
 }

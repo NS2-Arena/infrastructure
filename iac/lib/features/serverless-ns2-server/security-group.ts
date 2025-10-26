@@ -25,7 +25,7 @@ export default class NS2ServerSecurityGroup extends SecurityGroup {
       "Allow UDP access"
     );
 
-    SSMParameterWriter.writeStringParameter(this, "SecurityGroupArn", {
+    SSMParameterWriter.writeStringParameter(this, "SecurityGroupId", {
       stringValue: this.securityGroupId,
       parameterName: "/NS2Arena/TaskDefinition/SecurityGroup/Id",
     });
