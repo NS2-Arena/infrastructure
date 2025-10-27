@@ -12,7 +12,6 @@ import { ReplicatedConfigBucketStack } from "../lib/stacks/replicated-config-buc
 import { SourceConfigBucketStack } from "../lib/stacks/source-config-bucket-stack";
 import { Variables } from "./variables";
 import { DatabaseStack } from "../lib/stacks/database-stack";
-import { ServerManagementStack } from "../lib/stacks/server-management-stack";
 import { SSMDependencyTracker } from "../lib/features/ssm-parameter-management/ssm-dependency-tracker";
 
 const app = new App();
@@ -51,16 +50,6 @@ regions.forEach((region) => {
     },
     stackName: "Compute",
     serviceName: "Compute",
-    environment,
-  });
-
-  new ServerManagementStack(app, `ServerManagement${region.name}`, {
-    env: {
-      account: process.env.CDK_DEFAULT_ACCOUNT,
-      region: region.region,
-    },
-    stackName: "ServerManagement",
-    serviceName: "ServerManagement",
     environment,
     mainRegion,
   });
