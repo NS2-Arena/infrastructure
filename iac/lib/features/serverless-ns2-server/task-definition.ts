@@ -19,7 +19,6 @@ import { RetentionDays } from "aws-cdk-lib/aws-logs";
 import { IBucket } from "aws-cdk-lib/aws-s3";
 import { NagSuppressions } from "cdk-nag";
 import { Construct } from "constructs";
-import { SSMParameterWriter } from "../ssm-parameter-management/ssm-parameter-writer";
 
 type NS2ServerTaskDefinitionProps = {
   ns2ServerRepo: IRepository;

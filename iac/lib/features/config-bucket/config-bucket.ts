@@ -8,6 +8,7 @@ import {
 import { NagSuppressions } from "cdk-nag";
 import { Construct } from "constructs";
 import { SSMParameterWriter } from "../ssm-parameter-management/ssm-parameter-writer";
+import { SSMParameters } from "../ssm-parameter-management/ssm-parameters";
 
 export class ConfigBucket extends Bucket {
   constructor(scope: Construct, id: string, props?: BucketProps) {
@@ -25,12 +26,12 @@ export class ConfigBucket extends Bucket {
 
     SSMParameterWriter.writeStringParameter(this, "BucketArnParameter", {
       stringValue: this.bucketArn,
-      parameterName: "/NS2Arena/ConfigBucket/Arn",
+      parameterName: SSMParameters.ConfigBucket.Arn,
     });
 
     SSMParameterWriter.writeStringParameter(this, "BucketNameParameter", {
       stringValue: this.bucketName,
-      parameterName: "/NS2Arena/ConfigBucket/Name",
+      parameterName: SSMParameters.ConfigBucket.Name,
     });
 
     NagSuppressions.addResourceSuppressions(

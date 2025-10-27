@@ -8,6 +8,7 @@ import {
 import { Construct } from "constructs";
 import { BaseStack, BaseStackProps } from "./base-stack";
 import { SSMParameterWriter } from "../features/ssm-parameter-management/ssm-parameter-writer";
+import { SSMParameters } from "../features/ssm-parameter-management/ssm-parameters";
 
 interface EcrRegistryStackProps extends BaseStackProps {
   readonly replicationRegions: string[];
@@ -38,7 +39,7 @@ export class EcrReRepositoryStack extends BaseStack {
 
     SSMParameterWriter.writeStringParameter(this, "RegistryParameter", {
       stringValue: this.repository.repositoryName,
-      parameterName: "/NS2Arena/ImageRepositories/ns2-server",
+      parameterName: SSMParameters.ImageRepositories.NS2Server.Name,
     });
 
     if (replicationRegions.length > 0) {

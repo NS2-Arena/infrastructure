@@ -7,6 +7,7 @@ import {
 import { NagSuppressions } from "cdk-nag";
 import { Construct } from "constructs";
 import { SSMParameterWriter } from "../ssm-parameter-management/ssm-parameter-writer";
+import { SSMParameters } from "../ssm-parameter-management/ssm-parameters";
 
 interface NS2ArenaDynamoTableProps {
   readonly tableName: string;
@@ -33,12 +34,12 @@ export class NS2ArenaDynamoTable extends Construct {
 
     SSMParameterWriter.writeStringParameter(this, "TableNameParameter", {
       stringValue: table.tableName,
-      parameterName: `/NS2Arena/Tables/${tableName}/Name`,
+      parameterName: SSMParameters.Tables.Servers.Name,
     });
 
     SSMParameterWriter.writeStringParameter(this, "TableArnParameter", {
       stringValue: table.tableArn,
-      parameterName: `/NS2Arena/Tables/${tableName}/Arn`,
+      parameterName: SSMParameters.Tables.Servers.Arn,
     });
 
     NagSuppressions.addResourceSuppressions(table, [
