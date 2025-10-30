@@ -82,7 +82,6 @@ export class ServerManagementStages extends Construct {
         stateJson: {
           Type: "Task",
           Resource: "arn:aws:states:::aws-sdk:ecs:listContainerInstances",
-          Next: "IsInstanceRunning",
           Arguments: {
             Cluster: serverlessNs2Server.cluster.clusterArn,
             Filter: "{% 'ec2InstanceId ==' & $InstanceId %}",
