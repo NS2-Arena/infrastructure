@@ -15,4 +15,8 @@ export class Variables {
   public static getTargetRegions(app: App): RegionInfo[] {
     return app.node.tryGetContext("targetRegions") as RegionInfo[];
   }
+
+  public static getMainRegion(): string {
+    return process.env.CDK_DEFAULT_REGION!;
+  }
 }

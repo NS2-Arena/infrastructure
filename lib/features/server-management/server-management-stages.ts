@@ -4,24 +4,25 @@ import {
   Choice,
   Condition,
   CustomState,
-  Pass,
   State,
   Wait,
   WaitTime,
 } from "aws-cdk-lib/aws-stepfunctions";
 import {
   DynamoAttributeValue,
-  DynamoPutItem,
   DynamoUpdateItem,
+  LambdaInvoke,
 } from "aws-cdk-lib/aws-stepfunctions-tasks";
 import { Construct } from "constructs";
 import NS2ServerTaskDefinition from "../serverless-ns2-server/task-definition";
 import ServerlessNS2Server from "../serverless-ns2-server/serverless-ns2-server";
+import { CreateServerRecord } from "./create-server-record/create-server-record";
 
 interface ServerManagementStagesProps {
   serverTable: ITable;
   serverlessNs2Server: ServerlessNS2Server;
   taskDefinition: NS2ServerTaskDefinition;
+  createServerRecord: CreateServerRecord;
 }
 
 export class ServerManagementStages extends Construct {
@@ -34,23 +35,23 @@ export class ServerManagementStages extends Construct {
   ) {
     super(scope, id);
 
-    const { serverTable, taskDefinition, serverlessNs2Server } = props;
+    const {
+      serverTable,
+      taskDefinition,
+      serverlessNs2Server,
+      createServerRecord,
+    } = props;
 
-    const setServerUuid = new Pass(this, "CreateServerUuid", {
-      assign: {
-        serverUuid: "{% $uuid() %}",
-      },
-    });
-
-    const createServerRecord = new DynamoPutItem(this, "CreateServersRecord", {
-      table: serverTable,
-      item: {
-        id: DynamoAttributeValue.fromString("{% $serverUuid %}"),
-        state: DynamoAttributeValue.fromString("PROVISIONING"), // TODO: Use enum for this
-      },
-      conditionExpression: "attribute_not_exists(id)",
-      stateName: "Create Servers Record",
-    });
+    const createServerRecordStage = new LambdaInvoke(
+      this,
+      "InvokeCreateServerRecordLambda",
+      {
+        lambdaFunction: createServerRecord.function,
+        assign: {
+          serverUuid: "{% $states.result.Payload.serverUuid %}",
+        },
+      }
+    );
 
     const createInstance = new CustomState(this, "CreateInstance", {
       stateJson: {
@@ -157,8 +158,7 @@ export class ServerManagementStages extends Construct {
       },
     });
 
-    setServerUuid.next(createServerRecord);
-    createServerRecord.next(createInstance);
+    createServerRecordStage.next(createInstance);
     createInstance.next(waitForInstance);
     waitForInstance.next(listContainerInstances);
     listContainerInstances.next(isInstanceRunning);
@@ -174,6 +174,6 @@ export class ServerManagementStages extends Construct {
     updateStatePending.next(runTask);
     runTask.next(updateStateActive);
 
-    this.startState = setServerUuid;
+    this.startState = createServerRecordStage;
   }
 }

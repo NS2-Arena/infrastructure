@@ -111,6 +111,7 @@ export default class NS2ServerTaskDefinition extends Ec2TaskDefinition {
           "Action::s3:GetBucket*",
           "Action::s3:GetObject*",
           "Action::s3:List*",
+          "Resource::<NS2ArenaConfigBucketArnParameterC9112435.Parameter.Value>/*",
           "Resource::<ConfigBucketParameterParameter>/*",
         ],
         reason: "Wildcards used for actions and access to all bucket objects",

@@ -18,35 +18,51 @@ import {
   StateMachine,
 } from "aws-cdk-lib/aws-stepfunctions";
 import { NagSuppressions } from "cdk-nag";
+import { DynamoTableFetcher } from "../dynamo-table/dynamo-tables-fetcher";
+import { CreateServerRecord } from "./create-server-record/create-server-record";
 
 interface ServerManagementStateMachineProps {
   vpc: IVpc;
-  serverTable: ITable;
   serverlessNs2Server: ServerlessNS2Server;
   taskDefinition: NS2ServerTaskDefinition;
 }
 
-export class ServerManagementStateMachine extends StateMachine {
+export class ServerManagementStateMachine extends Construct {
   constructor(
     scope: Construct,
     id: string,
     props: ServerManagementStateMachineProps
   ) {
-    const { vpc, serverTable, serverlessNs2Server, taskDefinition } = props;
+    super(scope, id);
 
-    const region = Stack.of(scope).region;
-    const account = Stack.of(scope).account;
+    const { vpc, serverlessNs2Server, taskDefinition } = props;
 
-    const stages = new ServerManagementStages(scope, "Stages", {
+    const dynamoTables = DynamoTableFetcher.getInstance(this).getTables();
+    const serverTable = dynamoTables.ServerTable;
+
+    const region = Stack.of(this).region;
+    const account = Stack.of(this).account;
+
+    const createServerRecord = new CreateServerRecord(
+      this,
+      "CreateServerRecord"
+    );
+    const stages = new ServerManagementStages(this, "Stages", {
       serverTable,
       serverlessNs2Server,
       taskDefinition,
+      createServerRecord,
     });
 
-    const policy = new ManagedPolicy(scope, "Policy", {
+    const policy = new ManagedPolicy(this, "Policy", {
       statements: [
         new PolicyStatement({
-          actions: ["dynamodb:PutItem", "dynamodb:UpdateItem"],
+          effect: Effect.ALLOW,
+          actions: ["lambda:InvokeFunction"],
+          resources: [createServerRecord.function.functionArn],
+        }),
+        new PolicyStatement({
+          actions: ["dynamodb:UpdateItem"],
           effect: Effect.ALLOW,
           resources: [serverTable.tableArn],
         }),
@@ -102,12 +118,12 @@ export class ServerManagementStateMachine extends StateMachine {
       ],
     });
 
-    const role = new Role(scope, "Role", {
+    const role = new Role(this, "Role", {
       managedPolicies: [policy],
       assumedBy: new ServicePrincipal("states.amazonaws.com"),
     });
 
-    super(scope, id, {
+    const stateMachine = new StateMachine(this, id, {
       definitionBody: DefinitionBody.fromChainable(stages.startState),
       queryLanguage: QueryLanguage.JSONATA,
       role: role.withoutPolicyUpdates(),
@@ -130,6 +146,15 @@ export class ServerManagementStateMachine extends StateMachine {
         id: "AwsSolutions-IAM5",
         reason: "Allowing wildcard temporarily",
         // appliesTo: ["Resource::*"],
+      },
+    ]);
+
+    NagSuppressions.addResourceSuppressions(stateMachine, [
+      { id: "AwsSolutions-SF1", reason: "Not logging to cloudwatch yet" },
+      { id: "AwsSolutions-SF2", reason: "Not using X-Ray" },
+      {
+        id: "Serverless-StepFunctionStateMachineXray",
+        reason: "Not using X-Ray",
       },
     ]);
   }

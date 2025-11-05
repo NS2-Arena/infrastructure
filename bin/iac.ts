@@ -19,13 +19,13 @@ const app = new App();
 const regions = Variables.getTargetRegions(app);
 const environment = Variables.getEnvironment();
 
-const mainRegion = process.env.CDK_DEFAULT_REGION!;
-const nonMainRegions = regions.filter(
+const mainRegion = Variables.getMainRegion();
+const secondaryRegions = regions.filter(
   (regionInfo) => regionInfo.region !== mainRegion
 );
 
 // Non main region stacks
-nonMainRegions.forEach((regionInfo) => {
+secondaryRegions.forEach((regionInfo) => {
   new ReplicatedConfigBucketStack(
     app,
     `ReplicatedConfigBucket${regionInfo.name}`,
@@ -51,7 +51,6 @@ regions.forEach((region) => {
     stackName: "Compute",
     serviceName: "Compute",
     environment,
-    mainRegion,
   });
 });
 
@@ -63,7 +62,7 @@ new SourceConfigBucketStack(app, "SourceConfigBucket", {
   },
   serviceName: "SourceConfigBucket",
   environment,
-  destinationRegions: nonMainRegions,
+  destinationRegions: secondaryRegions,
 });
 
 new EcrReRepositoryStack(app, "EcrRepository", {
@@ -73,7 +72,7 @@ new EcrReRepositoryStack(app, "EcrRepository", {
   },
   serviceName: "ECR",
   environment,
-  replicationRegions: nonMainRegions.map((region) => region.region),
+  replicationRegions: secondaryRegions.map((region) => region.region),
 });
 
 new DatabaseStack(app, "DatabaseTables", {

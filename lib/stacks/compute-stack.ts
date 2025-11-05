@@ -6,19 +6,13 @@ import ServerlessNS2Server from "../features/serverless-ns2-server/serverless-ns
 import { BaseStack, BaseStackProps } from "./base-stack";
 import { Bucket } from "aws-cdk-lib/aws-s3";
 import { SSMParameterReader } from "../features/ssm-parameter-management/ssm-parameter-reader";
-import { RegionalSSMParameterReader } from "../features/ssm-parameter-management/regional-ssm-parameter-reader";
-import { Table } from "aws-cdk-lib/aws-dynamodb";
 import { ServerManagementStateMachine } from "../features/server-management/server-management-state-machine";
-
-interface NS2ArenaComputeProps extends BaseStackProps {
-  readonly mainRegion: string;
-}
+import { SSMParameters } from "../features/ssm-parameter-management/ssm-parameters";
+import { Variables } from "../../bin/variables";
 
 export class NS2ArenaCompute extends BaseStack {
-  constructor(scope: Construct, id: string, props: NS2ArenaComputeProps) {
+  constructor(scope: Construct, id: string, props: BaseStackProps) {
     super(scope, id, props);
-
-    const { mainRegion } = props;
 
     const vpc = Vpc.fromLookup(this, "DefaultVPC", { isDefault: true });
 
@@ -31,7 +25,7 @@ export class NS2ArenaCompute extends BaseStack {
     const configBucketArn = SSMParameterReader.readStringParameter(
       this,
       "ConfigBucketParameter",
-      "/NS2Arena/ConfigBucket/Arn"
+      { parameterName: SSMParameters.ConfigBucket.Arn }
     );
 
     const configBucket = Bucket.fromBucketArn(
@@ -39,23 +33,6 @@ export class NS2ArenaCompute extends BaseStack {
       "ConfigBucket",
       configBucketArn
     );
-
-    const tableArnParameter = "/NS2Arena/Tables/Servers/Arn";
-    let tableArn: string;
-
-    if (mainRegion !== props.env?.region) {
-      tableArn = new RegionalSSMParameterReader(this, "ServerTableArn", {
-        parameterName: tableArnParameter,
-        region: mainRegion,
-      }).getParameterValue();
-    } else {
-      tableArn = SSMParameterReader.readStringParameter(
-        this,
-        "ServerTableArn",
-        tableArnParameter
-      );
-    }
-    const serverTable = Table.fromTableArn(this, "ServersTable", tableArn);
 
     const taskDefinition = new NS2ServerTaskDefinition(
       this,
@@ -72,7 +49,6 @@ export class NS2ArenaCompute extends BaseStack {
     );
     new ServerManagementStateMachine(this, "ServerManagementStateMachine", {
       vpc,
-      serverTable,
       serverlessNs2Server,
       taskDefinition,
     });

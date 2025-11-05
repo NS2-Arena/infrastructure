@@ -4,8 +4,9 @@ import { Bucket, IBucket } from "aws-cdk-lib/aws-s3";
 import { Role, ServicePrincipal } from "aws-cdk-lib/aws-iam";
 import { NagSuppressions } from "cdk-nag";
 import { ConfigBucket } from "../features/config-bucket/config-bucket";
-import { RegionalSSMParameterReader } from "../features/ssm-parameter-management/regional-ssm-parameter-reader";
 import { RegionInfo } from "../../bin/variables";
+import { SSMParameterReader } from "../features/ssm-parameter-management/ssm-parameter-reader";
+import { SSMParameters } from "../features/ssm-parameter-management/ssm-parameters";
 
 interface SourceConfigBucketStackProps extends BaseStackProps {
   destinationRegions: RegionInfo[];
@@ -35,14 +36,14 @@ export class SourceConfigBucketStack extends BaseStack {
 
     const destinationBuckets: IBucket[] = destinationRegions.map(
       (regionInfo) => {
-        const arn = new RegionalSSMParameterReader(
+        const arn = SSMParameterReader.readStringParameter(
           this,
           `DestinationBucketParameter${regionInfo.name}`,
           {
-            parameterName: "/NS2Arena/ConfigBucket/Arn",
+            parameterName: SSMParameters.ConfigBucket.Arn,
             region: regionInfo.region,
           }
-        ).getParameterValue();
+        );
 
         return Bucket.fromBucketArn(
           this,
@@ -85,6 +86,7 @@ export class SourceConfigBucketStack extends BaseStack {
             "Resource::<SourceConfigBucket412D99EC.Arn>/*",
             "Resource::<DestConfigBucketF25B8258.Arn>/*",
             "Resource::<DestinationBucketParameterNVirginiaE645158B.Parameter.Value>/*",
+            "Resource::<NS2ArenaConfigBucketArnParameterC9112435.Parameter.Value>/*",
           ],
           reason: "Wildcards are appropriate in this context",
         },
