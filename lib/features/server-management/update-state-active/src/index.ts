@@ -6,12 +6,13 @@ type LambdaHandler<T> = (event: UpdateStateActiveEvent) => Promise<T>;
 
 interface UpdateStateActiveEvent {
   serverUuid: string;
+  resumeToken: string;
 }
 
 export const handler: LambdaHandler<void> = async (
   event: UpdateStateActiveEvent
 ) => {
-  const serverUuid = event.serverUuid;
+  const { serverUuid, resumeToken } = event;
 
   const client = new DynamoDBClient();
   const docClient = DynamoDBDocumentClient.from(client);
@@ -19,12 +20,14 @@ export const handler: LambdaHandler<void> = async (
   const input = new UpdateCommand({
     TableName: process.env.ServerTableName!,
     Key: { id: serverUuid },
-    UpdateExpression: "SET #state = :state",
+    UpdateExpression: "SET #state = :state, #resumeToken = :resumeToken",
     ExpressionAttributeNames: {
       "#state": "state",
+      "#resumeToken": "resumeToken",
     },
     ExpressionAttributeValues: {
       ":state": "ACTIVE" as ServerRecordState,
+      ":resumeToken": resumeToken,
     },
     ConditionExpression: "attribute_exists(id)",
   });

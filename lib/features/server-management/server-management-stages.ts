@@ -5,6 +5,7 @@ import {
   Condition,
   CustomState,
   InputType,
+  IntegrationPattern,
   State,
   Wait,
   WaitTime,
@@ -151,10 +152,12 @@ export class ServerManagementStages extends Construct {
 
     const updateStateActiveStage = new LambdaInvoke(this, "UpdateStateActive", {
       lambdaFunction: updateStateActive.function,
+      integrationPattern: IntegrationPattern.WAIT_FOR_TASK_TOKEN,
       payload: {
         type: InputType.OBJECT,
         value: {
           serverUuid: "{% $serverUuid %}",
+          resumeToken: "{% $states.context.Task.Token %}",
         },
       },
     });
