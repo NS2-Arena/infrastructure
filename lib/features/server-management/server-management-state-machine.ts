@@ -20,6 +20,8 @@ import {
 import { NagSuppressions } from "cdk-nag";
 import { DynamoTableFetcher } from "../dynamo-table/dynamo-tables-fetcher";
 import { CreateServerRecord } from "./create-server-record/create-server-record";
+import { UpdateStateActive } from "./update-state-active/update-state-active";
+import { UpdateStatePending } from "./update-state-pending/update-state-pending";
 
 interface ServerManagementStateMachineProps {
   vpc: IVpc;
@@ -37,9 +39,6 @@ export class ServerManagementStateMachine extends Construct {
 
     const { vpc, serverlessNs2Server, taskDefinition } = props;
 
-    const dynamoTables = DynamoTableFetcher.getInstance(this).getTables();
-    const serverTable = dynamoTables.ServerTable;
-
     const region = Stack.of(this).region;
     const account = Stack.of(this).account;
 
@@ -47,11 +46,18 @@ export class ServerManagementStateMachine extends Construct {
       this,
       "CreateServerRecord"
     );
+    const updateStatePending = new UpdateStatePending(
+      this,
+      "UpdateStatePending"
+    );
+    const updateStateActive = new UpdateStateActive(this, "UpdateStateActive");
+
     const stages = new ServerManagementStages(this, "Stages", {
-      serverTable,
       serverlessNs2Server,
       taskDefinition,
       createServerRecord,
+      updateStatePending,
+      updateStateActive,
     });
 
     const policy = new ManagedPolicy(this, "Policy", {
@@ -59,12 +65,11 @@ export class ServerManagementStateMachine extends Construct {
         new PolicyStatement({
           effect: Effect.ALLOW,
           actions: ["lambda:InvokeFunction"],
-          resources: [createServerRecord.function.functionArn],
-        }),
-        new PolicyStatement({
-          actions: ["dynamodb:UpdateItem"],
-          effect: Effect.ALLOW,
-          resources: [serverTable.tableArn],
+          resources: [
+            createServerRecord.function.functionArn,
+            updateStateActive.function.functionArn,
+            updateStatePending.function.functionArn,
+          ],
         }),
         new PolicyStatement({
           actions: ["ecs:RunTask"],

@@ -4,6 +4,7 @@ import {
   Choice,
   Condition,
   CustomState,
+  InputType,
   State,
   Wait,
   WaitTime,
@@ -17,12 +18,15 @@ import { Construct } from "constructs";
 import NS2ServerTaskDefinition from "../serverless-ns2-server/task-definition";
 import ServerlessNS2Server from "../serverless-ns2-server/serverless-ns2-server";
 import { CreateServerRecord } from "./create-server-record/create-server-record";
+import { UpdateStateActive } from "./update-state-active/update-state-active";
+import { UpdateStatePending } from "./update-state-pending/update-state-pending";
 
 interface ServerManagementStagesProps {
-  serverTable: ITable;
   serverlessNs2Server: ServerlessNS2Server;
   taskDefinition: NS2ServerTaskDefinition;
   createServerRecord: CreateServerRecord;
+  updateStatePending: UpdateStatePending;
+  updateStateActive: UpdateStateActive;
 }
 
 export class ServerManagementStages extends Construct {
@@ -36,10 +40,11 @@ export class ServerManagementStages extends Construct {
     super(scope, id);
 
     const {
-      serverTable,
       taskDefinition,
       serverlessNs2Server,
       createServerRecord,
+      updateStateActive,
+      updateStatePending,
     } = props;
 
     const createServerRecordStage = new LambdaInvoke(
@@ -100,18 +105,16 @@ export class ServerManagementStages extends Construct {
       },
     });
 
-    const updateStatePending = new DynamoUpdateItem(
+    const updateStatePendingStage = new LambdaInvoke(
       this,
       "UpdateStatePending",
       {
-        table: serverTable,
-        key: { id: DynamoAttributeValue.fromString("{% $serverUuid %}") },
-        updateExpression: "SET #state = :state",
-        expressionAttributeNames: {
-          "#state": "state",
-        },
-        expressionAttributeValues: {
-          ":state": DynamoAttributeValue.fromString("PENDING"),
+        lambdaFunction: updateStatePending.function,
+        payload: {
+          type: InputType.OBJECT,
+          value: {
+            serverUuid: "{% $serverUuid %}",
+          },
         },
       }
     );
@@ -146,15 +149,13 @@ export class ServerManagementStages extends Construct {
       },
     });
 
-    const updateStateActive = new DynamoUpdateItem(this, "UpdateStateActive", {
-      table: serverTable,
-      key: { id: DynamoAttributeValue.fromString("{% $serverUuid %}") },
-      updateExpression: "SET #state = :state",
-      expressionAttributeNames: {
-        "#state": "state",
-      },
-      expressionAttributeValues: {
-        ":state": DynamoAttributeValue.fromString("ACTIVE"),
+    const updateStateActiveStage = new LambdaInvoke(this, "UpdateStateActive", {
+      lambdaFunction: updateStateActive.function,
+      payload: {
+        type: InputType.OBJECT,
+        value: {
+          serverUuid: "{% $serverUuid %}",
+        },
       },
     });
 
@@ -167,12 +168,12 @@ export class ServerManagementStages extends Construct {
         Condition.jsonata(
           "{% $count($states.input.ContainerInstanceArns) = 1 %}"
         ),
-        updateStatePending
+        updateStatePendingStage
       )
       .otherwise(waitForInstance);
 
-    updateStatePending.next(runTask);
-    runTask.next(updateStateActive);
+    updateStatePendingStage.next(runTask);
+    runTask.next(updateStateActiveStage);
 
     this.startState = createServerRecordStage;
   }
