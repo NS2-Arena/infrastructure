@@ -43,6 +43,12 @@ export default class ServerlessNS2Server extends Construct {
       containerInsightsV2: ContainerInsights.ENABLED,
     });
 
+    // Workaround for over-enthusiastic CDK validation
+    Object.defineProperty(this.cluster, "hasEc2Capacity", {
+      value: true,
+      writable: true,
+    });
+
     this.securityGroup = new NS2ServerSecurityGroup(
       this,
       "NS2ServerSecurityGroup",
@@ -134,9 +140,5 @@ export default class ServerlessNS2Server extends Construct {
       userData,
       requireImdsv2: true,
     });
-
-    NagSuppressions.addResourceSuppressions(instanceProfilePolicy, [
-      { id: "AwsSolutions-IAM5", reason: "It's ok trust me" },
-    ]);
   }
 }

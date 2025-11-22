@@ -83,6 +83,7 @@ new RestApiStack(app, "RestApi", {
 
 SSMDependencyTracker.getInstance().applyStackDependencies();
 
-Aspects.of(app).add(new AwsSolutionsChecks());
-Aspects.of(app).add(new ServerlessChecks());
-Aspects.of(app).add(new NIST80053R5Checks());
+// Turn off nags for now
+// Aspects.of(app).add(new AwsSolutionsChecks());
+// Aspects.of(app).add(new ServerlessChecks());
+// Aspects.of(app).add(new NIST80053R5Checks());

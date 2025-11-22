@@ -1,6 +1,6 @@
 import { Duration } from "aws-cdk-lib";
-import { ITable } from "aws-cdk-lib/aws-dynamodb";
 import {
+  Chain,
   Choice,
   Condition,
   CustomState,
@@ -11,8 +11,8 @@ import {
   WaitTime,
 } from "aws-cdk-lib/aws-stepfunctions";
 import {
-  DynamoAttributeValue,
-  DynamoUpdateItem,
+  EcsEc2LaunchTarget,
+  EcsRunTask,
   LambdaInvoke,
 } from "aws-cdk-lib/aws-stepfunctions-tasks";
 import { Construct } from "constructs";
@@ -21,6 +21,7 @@ import ServerlessNS2Server from "../serverless-ns2-server/serverless-ns2-server"
 import { CreateServerRecord } from "./create-server-record/create-server-record";
 import { UpdateStateActive } from "./update-state-active/update-state-active";
 import { UpdateStatePending } from "./update-state-pending/update-state-pending";
+import { PropagatedTagSource } from "aws-cdk-lib/aws-ecs";
 
 interface ServerManagementStagesProps {
   serverlessNs2Server: ServerlessNS2Server;
@@ -31,7 +32,7 @@ interface ServerManagementStagesProps {
 }
 
 export class ServerManagementStages extends Construct {
-  public readonly startState: State;
+  public readonly chain: Chain;
 
   constructor(
     scope: Construct,
@@ -41,7 +42,7 @@ export class ServerManagementStages extends Construct {
     super(scope, id);
 
     const {
-      taskDefinition,
+      taskDefinition: { taskDefinition, taskRole },
       serverlessNs2Server,
       createServerRecord,
       updateStateActive,
@@ -120,34 +121,26 @@ export class ServerManagementStages extends Construct {
       }
     );
 
-    const runTask = new CustomState(this, "RunServer", {
-      stateJson: {
-        Type: "Task",
-        Resource: "arn:aws:states:::ecs:runTask.waitForTaskToken",
-        Arguments: {
-          LaunchType: "EC2",
-          Cluster: serverlessNs2Server.cluster.clusterArn,
-          TaskDefinition: taskDefinition.taskDefinitionArn,
-          EnableECSManagedTags: true,
-          EnableExecuteCommand: false,
-          Overrides: {
-            ContainerOverrides: [
-              {
-                Name: "ns2-server",
-                Environment: [
-                  { Name: "NAME", Value: "A Test Server" },
-                  { Name: "PASSWORD", Value: "itsabigtest" },
-                  { Name: "LAUNCH_CONFIG", Value: "TestConfig" },
-                  {
-                    Name: "TASK_TOKEN",
-                    Value: "{% $states.context.Task.Token %}",
-                  },
-                ],
-              },
-            ],
-          },
+    const runTask = new EcsRunTask(this, "RunServer", {
+      integrationPattern: IntegrationPattern.WAIT_FOR_TASK_TOKEN,
+      cluster: serverlessNs2Server.cluster,
+      taskDefinition: taskDefinition,
+      launchTarget: new EcsEc2LaunchTarget(),
+      propagatedTagSource: PropagatedTagSource.TASK_DEFINITION,
+      containerOverrides: [
+        {
+          containerDefinition: taskDefinition.findContainer("ns2-server")!,
+          environment: [
+            { name: "NAME", value: "A Test Server" },
+            { name: "PASSWORD", value: "itsabigtest" },
+            { name: "LAUNCH_CONFIG", value: "TestConfig" },
+            {
+              name: "TASK_TOKEN",
+              value: "{% $states.context.Task.Token %}",
+            },
+          ],
         },
-      },
+      ],
     });
 
     const updateStateActiveStage = new LambdaInvoke(this, "UpdateStateActive", {
@@ -162,22 +155,25 @@ export class ServerManagementStages extends Construct {
       },
     });
 
-    createServerRecordStage.next(createInstance);
-    createInstance.next(waitForInstance);
-    waitForInstance.next(listContainerInstances);
-    listContainerInstances.next(isInstanceRunning);
-    isInstanceRunning
-      .when(
-        Condition.jsonata(
-          "{% $count($states.input.ContainerInstanceArns) = 1 %}"
-        ),
-        updateStatePendingStage
-      )
-      .otherwise(waitForInstance);
+    const runServerChain = Chain.start(updateStatePendingStage)
+      .next(runTask)
+      .next(updateStateActiveStage);
 
-    updateStatePendingStage.next(runTask);
-    runTask.next(updateStateActiveStage);
+    const waitForProvisioningLoop = Chain.start(waitForInstance)
+      .next(listContainerInstances)
+      .next(
+        isInstanceRunning
+          .when(
+            Condition.jsonata(
+              "{% $count($states.input.ContainerInstanceArns) = 1 %}"
+            ),
+            runServerChain
+          )
+          .otherwise(waitForInstance)
+      );
 
-    this.startState = createServerRecordStage;
+    this.chain = Chain.start(createServerRecordStage)
+      .next(createInstance)
+      .next(waitForProvisioningLoop);
   }
 }
