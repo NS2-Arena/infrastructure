@@ -8,8 +8,7 @@ import {
 } from "cdk-nag";
 import { EcrReRepositoryStack } from "../lib/stacks/ecr-repository-stack";
 import { NS2ArenaCompute } from "../lib/stacks/compute-stack";
-import { ReplicatedConfigBucketStack } from "../lib/stacks/replicated-config-bucket-stack";
-import { SourceConfigBucketStack } from "../lib/stacks/source-config-bucket-stack";
+import { ConfigBucketStack } from "../lib/stacks/config-bucket-stack";
 import { Variables } from "./variables";
 import { DatabaseStack } from "../lib/stacks/database-stack";
 import { SSMDependencyTracker } from "../lib/features/ssm-parameter-management/ssm-dependency-tracker";
@@ -24,23 +23,6 @@ const secondaryRegions = regions.filter(
   (regionInfo) => regionInfo.region !== mainRegion
 );
 
-// Non main region stacks
-secondaryRegions.forEach((regionInfo) => {
-  new ReplicatedConfigBucketStack(
-    app,
-    `ReplicatedConfigBucket${regionInfo.name}`,
-    {
-      env: {
-        account: process.env.CDK_DEFAULT_ACCOUNT,
-        region: regionInfo.region,
-      },
-      stackName: "ReplicatedConfigBucket",
-      serviceName: "ReplicatedConfigBucket",
-      environment,
-    }
-  );
-});
-
 // All region stacks
 regions.forEach((region) => {
   new NS2ArenaCompute(app, `Compute${region.name}`, {
@@ -52,19 +34,21 @@ regions.forEach((region) => {
     serviceName: "Compute",
     environment,
   });
+
+  new ConfigBucketStack(app, `ConfigBucket${region.name}`, {
+    env: {
+      account: process.env.CDK_DEFAULT_ACCOUNT,
+      region: region.region,
+    },
+    stackName: "ConfigBucket",
+    serviceName: "ConfigBucket",
+    environment,
+    mainRegion,
+    destinationRegions: secondaryRegions,
+  });
 });
 
 // Main region only stacks
-new SourceConfigBucketStack(app, "SourceConfigBucket", {
-  env: {
-    account: process.env.CDK_DEFAULT_ACCOUNT,
-    region: process.env.CDK_DEFAULT_REGION,
-  },
-  serviceName: "SourceConfigBucket",
-  environment,
-  destinationRegions: secondaryRegions,
-});
-
 new EcrReRepositoryStack(app, "EcrRepository", {
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
