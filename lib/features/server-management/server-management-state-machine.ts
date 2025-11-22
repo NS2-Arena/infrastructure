@@ -19,6 +19,9 @@ import {
 import { CreateServerRecord } from "./create-server-record/create-server-record";
 import { UpdateStateActive } from "./update-state-active/update-state-active";
 import { UpdateStatePending } from "./update-state-pending/update-state-pending";
+import { UpdateStateDeprovisioning } from "./update-state-deprovisioning/update-state-deprovisioning";
+import { SSMParameterWriter } from "../ssm-parameter-management/ssm-parameter-writer";
+import { SSMParameters } from "../ssm-parameter-management/ssm-parameters";
 
 interface ServerManagementStateMachineProps {
   vpc: IVpc;
@@ -50,6 +53,10 @@ export class ServerManagementStateMachine extends Construct {
       "UpdateStatePending"
     );
     const updateStateActive = new UpdateStateActive(this, "UpdateStateActive");
+    const updateStateDeprovisioning = new UpdateStateDeprovisioning(
+      this,
+      "UpdateStateDeprovisioning"
+    );
 
     const stages = new ServerManagementStages(this, "Stages", {
       serverlessNs2Server,
@@ -57,6 +64,7 @@ export class ServerManagementStateMachine extends Construct {
       createServerRecord,
       updateStatePending,
       updateStateActive,
+      updateStateDeprovisioning,
     });
 
     const role = new Role(this, "Role", {
@@ -104,6 +112,16 @@ export class ServerManagementStateMachine extends Construct {
               effect: Effect.ALLOW,
               resources: [serverlessNs2Server.cluster.clusterArn],
             }),
+            new PolicyStatement({
+              actions: ["ecs:DescribeTasks"],
+              effect: Effect.ALLOW,
+              resources: ["*"],
+            }),
+            new PolicyStatement({
+              actions: ["ec2:TerminateInstances"],
+              effect: Effect.ALLOW,
+              resources: ["*"],
+            }),
           ],
         }),
       },
@@ -116,5 +134,10 @@ export class ServerManagementStateMachine extends Construct {
     });
 
     this.stateMachine.grantTaskResponse(taskDefinition.taskRole);
+
+    SSMParameterWriter.writeStringParameter(this, "StateMachineArn", {
+      parameterName: SSMParameters.StateMachines.ServerManagement.Arn,
+      stringValue: this.stateMachine.stateMachineArn,
+    });
   }
 }

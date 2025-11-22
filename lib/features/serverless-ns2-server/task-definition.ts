@@ -14,6 +14,7 @@ import { StringParameter } from "aws-cdk-lib/aws-ssm";
 import { NagSuppressions } from "cdk-nag";
 import { Construct } from "constructs";
 import { SSMParameters } from "../ssm-parameter-management/ssm-parameters";
+import { EcrRepoInfo } from "./ecr-repo-info";
 
 type NS2ServerTaskDefinitionProps = {
   ns2ServerRepo: IRepository;
@@ -56,7 +57,7 @@ export default class NS2ServerTaskDefinition extends Construct {
 
     this.taskRole = ns2ServerTaskRole;
 
-    this.taskDefinition.addContainer("ns2-server", {
+    this.taskDefinition.addContainer(EcrRepoInfo.Containers.Ns2Server, {
       image: ContainerImage.fromEcrRepository(ns2ServerRepo),
       portMappings: [
         { containerPort: 27015, hostPort: 27015, protocol: Protocol.TCP },
@@ -74,7 +75,7 @@ export default class NS2ServerTaskDefinition extends Construct {
       }),
       essential: true,
       privileged: true,
-      user: "steam",
+      user: "ns2arena",
     });
   }
 }

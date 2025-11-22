@@ -10,7 +10,7 @@ export interface BaseStackProps extends StackProps {
   readonly environment: Environment;
 }
 
-export class BaseStack extends Stack {
+export abstract class BaseStack extends Stack {
   constructor(scope: Construct, id: string, props: BaseStackProps) {
     super(scope, id, props);
 

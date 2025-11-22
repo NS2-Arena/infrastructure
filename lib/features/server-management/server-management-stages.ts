@@ -6,11 +6,12 @@ import {
   CustomState,
   InputType,
   IntegrationPattern,
-  State,
   Wait,
   WaitTime,
 } from "aws-cdk-lib/aws-stepfunctions";
 import {
+  DynamoAttributeValue,
+  DynamoDeleteItem,
   EcsEc2LaunchTarget,
   EcsRunTask,
   LambdaInvoke,
@@ -21,7 +22,10 @@ import ServerlessNS2Server from "../serverless-ns2-server/serverless-ns2-server"
 import { CreateServerRecord } from "./create-server-record/create-server-record";
 import { UpdateStateActive } from "./update-state-active/update-state-active";
 import { UpdateStatePending } from "./update-state-pending/update-state-pending";
-import { PropagatedTagSource } from "aws-cdk-lib/aws-ecs";
+import { PlacementConstraint, PropagatedTagSource } from "aws-cdk-lib/aws-ecs";
+import { UpdateStateDeprovisioning } from "./update-state-deprovisioning/update-state-deprovisioning";
+import { DynamoTableFetcher } from "../dynamo-table/dynamo-tables-fetcher";
+import { EcrRepoInfo } from "../serverless-ns2-server/ecr-repo-info";
 
 interface ServerManagementStagesProps {
   serverlessNs2Server: ServerlessNS2Server;
@@ -29,6 +33,7 @@ interface ServerManagementStagesProps {
   createServerRecord: CreateServerRecord;
   updateStatePending: UpdateStatePending;
   updateStateActive: UpdateStateActive;
+  updateStateDeprovisioning: UpdateStateDeprovisioning;
 }
 
 export class ServerManagementStages extends Construct {
@@ -47,6 +52,7 @@ export class ServerManagementStages extends Construct {
       createServerRecord,
       updateStateActive,
       updateStatePending,
+      updateStateDeprovisioning,
     } = props;
 
     const createServerRecordStage = new LambdaInvoke(
@@ -80,7 +86,7 @@ export class ServerManagementStages extends Construct {
     });
 
     const waitForInstance = new Wait(this, "WaitForInstance", {
-      time: WaitTime.duration(Duration.seconds(5)),
+      time: WaitTime.duration(Duration.seconds(3)),
     });
 
     const listContainerInstances = new CustomState(
@@ -101,12 +107,6 @@ export class ServerManagementStages extends Construct {
       }
     );
 
-    const isInstanceRunning = new Choice(this, "IsInstanceRunning", {
-      outputs: {
-        ContainerInstanceArns: "{% $states.input.ContainerInstanceArns %}",
-      },
-    });
-
     const updateStatePendingStage = new LambdaInvoke(
       this,
       "UpdateStatePending",
@@ -125,11 +125,19 @@ export class ServerManagementStages extends Construct {
       integrationPattern: IntegrationPattern.WAIT_FOR_TASK_TOKEN,
       cluster: serverlessNs2Server.cluster,
       taskDefinition: taskDefinition,
-      launchTarget: new EcsEc2LaunchTarget(),
+      launchTarget: new EcsEc2LaunchTarget({
+        placementConstraints: [
+          PlacementConstraint.memberOf(
+            "{% 'ec2InstanceId ==' & $InstanceId %}"
+          ),
+        ],
+      }),
       propagatedTagSource: PropagatedTagSource.TASK_DEFINITION,
       containerOverrides: [
         {
-          containerDefinition: taskDefinition.findContainer("ns2-server")!,
+          containerDefinition: taskDefinition.findContainer(
+            EcrRepoInfo.Containers.Ns2Server
+          )!,
           environment: [
             { name: "NAME", value: "A Test Server" },
             { name: "PASSWORD", value: "itsabigtest" },
@@ -141,6 +149,9 @@ export class ServerManagementStages extends Construct {
           ],
         },
       ],
+      assign: {
+        TaskArn: "{% $states.result.TaskARN %}",
+      },
     });
 
     const updateStateActiveStage = new LambdaInvoke(this, "UpdateStateActive", {
@@ -155,14 +166,95 @@ export class ServerManagementStages extends Construct {
       },
     });
 
+    const updateStateDeprovisioningStage = new LambdaInvoke(
+      this,
+      "UpdateStateDeprovisioning",
+      {
+        lambdaFunction: updateStateDeprovisioning.function,
+        payload: {
+          type: InputType.OBJECT,
+          value: {
+            serverUuid: "{% $serverUuid %}",
+          },
+        },
+      }
+    );
+
+    const stopTask = new CustomState(this, "StopTask", {
+      stateJson: {
+        Type: "Task",
+        Arguments: {
+          Task: "{% $TaskArn %}",
+          Cluster: serverlessNs2Server.cluster.clusterArn,
+        },
+        Resource: "arn:aws:states:::aws-sdk:ecs:stopTask",
+      },
+    });
+
+    const describeTask = new CustomState(this, "DescribeTask", {
+      stateJson: {
+        Type: "Task",
+        Arguments: {
+          Tasks: ["{% $TaskArn %}"],
+          Cluster: serverlessNs2Server.cluster.clusterArn,
+        },
+        Resource: "arn:aws:states:::aws-sdk:ecs:describeTasks",
+        Output: {
+          TaskState: "{% $states.result.Tasks[0].LastStatus %}",
+        },
+      },
+    });
+
+    const waitForTaskToStop = new Wait(this, "WaitForTaskToStop", {
+      time: WaitTime.duration(Duration.seconds(3)),
+    });
+
+    const terminateInstance = new CustomState(this, "TerminateInstance", {
+      stateJson: {
+        Type: "Task",
+        Arguments: {
+          InstanceIds: ["{% $InstanceId %}"],
+        },
+        Resource: "arn:aws:states:::aws-sdk:ec2:terminateInstances",
+      },
+    });
+
+    const serversTable =
+      DynamoTableFetcher.getInstance(this).getTables().ServerTable;
+    const deleteServerRecord = new DynamoDeleteItem(
+      this,
+      "DeleteServerRecord",
+      {
+        table: serversTable,
+        key: {
+          id: DynamoAttributeValue.fromString("{% $serverUuid %}"),
+        },
+      }
+    );
+
+    const continueDeprovisioningChain =
+      Chain.start(terminateInstance).next(deleteServerRecord);
+
+    const waitForDeprovisioningLoop = Chain.start(describeTask).next(
+      new Choice(this, "HasTaskStopped")
+        .when(
+          Condition.jsonata("{% $states.input.TaskState = 'STOPPED' %}"),
+          continueDeprovisioningChain
+        )
+        .otherwise(Chain.start(waitForTaskToStop).next(describeTask))
+    );
+
     const runServerChain = Chain.start(updateStatePendingStage)
       .next(runTask)
-      .next(updateStateActiveStage);
+      .next(updateStateActiveStage)
+      .next(updateStateDeprovisioningStage)
+      .next(stopTask)
+      .next(waitForDeprovisioningLoop);
 
     const waitForProvisioningLoop = Chain.start(waitForInstance)
       .next(listContainerInstances)
       .next(
-        isInstanceRunning
+        new Choice(this, "IsInstanceRunning")
           .when(
             Condition.jsonata(
               "{% $count($states.input.ContainerInstanceArns) = 1 %}"

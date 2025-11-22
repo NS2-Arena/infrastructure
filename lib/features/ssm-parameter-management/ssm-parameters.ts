@@ -16,4 +16,10 @@ export class SSMParameters {
       Name: "/NS2Arena/ImageRepositories/ns2-server/Name",
     },
   };
+
+  public static StateMachines = {
+    ServerManagement: {
+      Arn: "/NS2Arena/StateMachines/ServerManagement/Arn",
+    },
+  };
 }

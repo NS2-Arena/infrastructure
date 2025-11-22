@@ -9,6 +9,7 @@ import { Construct } from "constructs";
 import { BaseStack, BaseStackProps } from "./base-stack";
 import { SSMParameterWriter } from "../features/ssm-parameter-management/ssm-parameter-writer";
 import { SSMParameters } from "../features/ssm-parameter-management/ssm-parameters";
+import { EcrRepoInfo } from "../features/serverless-ns2-server/ecr-repo-info";
 
 interface EcrRegistryStackProps extends BaseStackProps {
   readonly replicationRegions: string[];
@@ -27,7 +28,7 @@ export class EcrReRepositoryStack extends BaseStack {
       removalPolicy: RemovalPolicy.DESTROY,
       emptyOnDelete: true,
       imageScanOnPush: true,
-      repositoryName: "ns2arena/ns2-server",
+      repositoryName: EcrRepoInfo.Repos.Ns2Servers,
       lifecycleRules: [
         {
           rulePriority: 1,

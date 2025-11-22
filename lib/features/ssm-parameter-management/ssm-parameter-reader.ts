@@ -28,7 +28,7 @@ export class SSMParameterReader {
     else
       return new RegionalSSMParameterReader(
         scope,
-        `${parameterName}Parameter`,
+        `${parameterName.replaceAll("/", "")}Parameter`,
         {
           parameterName,
           region: targetRegion,
