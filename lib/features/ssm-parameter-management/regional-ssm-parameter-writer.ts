@@ -10,6 +10,7 @@ import { Construct } from "constructs";
 
 interface SSMParameterReaderProps {
   parameterName: string;
+  stringValue: string;
   region: string;
 }
 
@@ -17,15 +18,17 @@ function removeLeadingSlash(value: string): string {
   return value.slice(0, 1) == "/" ? value.slice(1) : value;
 }
 
-export class RegionalSSMParameterReader extends AwsCustomResource {
+export class RegionalSSMParameterWriter extends AwsCustomResource {
   constructor(scope: Construct, id: string, props: SSMParameterReaderProps) {
-    const { parameterName, region } = props;
+    const { parameterName, stringValue, region } = props;
 
     const ssmAwsSdkCall: AwsSdkCall = {
       service: "SSM",
-      action: "getParameter",
+      action: "putParameter",
       parameters: {
         Name: parameterName,
+        Value: stringValue,
+        Type: "String",
       },
       region,
       physicalResourceId: PhysicalResourceId.of(Date.now().toString()),
@@ -120,9 +123,5 @@ export class RegionalSSMParameterReader extends AwsCustomResource {
         );
       }
     });
-  }
-
-  public getParameterValue(): string {
-    return this.getResponseField("Parameter.Value").toString();
   }
 }

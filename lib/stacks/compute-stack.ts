@@ -8,7 +8,6 @@ import { Bucket } from "aws-cdk-lib/aws-s3";
 import { SSMParameterReader } from "../features/ssm-parameter-management/ssm-parameter-reader";
 import { ServerManagementStateMachine } from "../features/server-management/server-management-state-machine";
 import { SSMParameters } from "../features/ssm-parameter-management/ssm-parameters";
-import { Variables } from "../../bin/variables";
 
 export class NS2ArenaCompute extends BaseStack {
   constructor(scope: Construct, id: string, props: BaseStackProps) {
@@ -34,7 +33,7 @@ export class NS2ArenaCompute extends BaseStack {
       configBucketArn
     );
 
-    const taskDefinition = new NS2ServerTaskDefinition(
+    const ns2ServerTaskDefinition = new NS2ServerTaskDefinition(
       this,
       "NS2ServerTaskDefinition",
       {
@@ -42,15 +41,17 @@ export class NS2ArenaCompute extends BaseStack {
         configBucket,
       }
     );
+
     const serverlessNs2Server = new ServerlessNS2Server(
       this,
       "NS2ServerCluster",
       { vpc }
     );
+
     new ServerManagementStateMachine(this, "ServerManagementStateMachine", {
       vpc,
       serverlessNs2Server,
-      taskDefinition,
+      ns2ServerTaskDefinition,
     });
   }
 }

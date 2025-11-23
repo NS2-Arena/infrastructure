@@ -7,7 +7,7 @@ export interface RegionInfo {
   name: string;
 }
 
-export class Variables {
+export abstract class Variables {
   public static getEnvironment(): Environment {
     return "staging";
   }

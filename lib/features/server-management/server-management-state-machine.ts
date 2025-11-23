@@ -26,7 +26,7 @@ import { SSMParameters } from "../ssm-parameter-management/ssm-parameters";
 interface ServerManagementStateMachineProps {
   vpc: IVpc;
   serverlessNs2Server: ServerlessNS2Server;
-  taskDefinition: NS2ServerTaskDefinition;
+  ns2ServerTaskDefinition: NS2ServerTaskDefinition;
 }
 
 export class ServerManagementStateMachine extends Construct {
@@ -39,7 +39,7 @@ export class ServerManagementStateMachine extends Construct {
   ) {
     super(scope, id);
 
-    const { vpc, serverlessNs2Server, taskDefinition } = props;
+    const { vpc, serverlessNs2Server, ns2ServerTaskDefinition } = props;
 
     const region = Stack.of(this).region;
     const account = Stack.of(this).account;
@@ -60,7 +60,7 @@ export class ServerManagementStateMachine extends Construct {
 
     const stages = new ServerManagementStages(this, "Stages", {
       serverlessNs2Server,
-      taskDefinition,
+      ns2ServerTaskDefinition,
       createServerRecord,
       updateStatePending,
       updateStateActive,
@@ -133,7 +133,7 @@ export class ServerManagementStateMachine extends Construct {
       role,
     });
 
-    this.stateMachine.grantTaskResponse(taskDefinition.taskRole);
+    this.stateMachine.grantTaskResponse(ns2ServerTaskDefinition.taskRole);
 
     SSMParameterWriter.writeStringParameter(this, "StateMachineArn", {
       parameterName: SSMParameters.StateMachines.ServerManagement.Arn,

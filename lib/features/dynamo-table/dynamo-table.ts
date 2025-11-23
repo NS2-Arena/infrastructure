@@ -1,35 +1,36 @@
 import {
   AttributeType,
-  BillingMode,
-  Table,
-  TableProps,
+  Billing,
+  TablePropsV2,
+  TableV2,
 } from "aws-cdk-lib/aws-dynamodb";
-import { NagSuppressions } from "cdk-nag";
 import { Construct } from "constructs";
 import { SSMParameterWriter } from "../ssm-parameter-management/ssm-parameter-writer";
 import { SSMParameters } from "../ssm-parameter-management/ssm-parameters";
 
 interface NS2ArenaDynamoTableProps {
   readonly tableName: string;
-  readonly tableProps?: TableProps;
+  readonly replicationRegions: string[];
+  readonly tableProps?: TablePropsV2;
 }
 
 export class NS2ArenaDynamoTable extends Construct {
   constructor(scope: Construct, id: string, props: NS2ArenaDynamoTableProps) {
     super(scope, id);
 
-    const { tableName, tableProps } = props;
+    const { tableName, tableProps, replicationRegions } = props;
 
     // TODO: Use Tablev2
-    const table = new Table(this, "Table", {
+    const table = new TableV2(this, "Table", {
       ...tableProps,
       partitionKey: { name: "id", type: AttributeType.STRING },
-      pointInTimeRecoverySpecification: {
-        pointInTimeRecoveryEnabled: true,
-        recoveryPeriodInDays: 35,
-      },
+      // pointInTimeRecoverySpecification: {
+      //   pointInTimeRecoveryEnabled: true,
+      //   recoveryPeriodInDays: 35,
+      // },
       deletionProtection: true,
-      billingMode: BillingMode.PAY_PER_REQUEST,
+      replicas: replicationRegions.map((region) => ({ region: region })),
+      billing: Billing.onDemand(),
     });
 
     SSMParameterWriter.writeStringParameter(this, "TableNameParameter", {
@@ -42,11 +43,19 @@ export class NS2ArenaDynamoTable extends Construct {
       parameterName: SSMParameters.Tables.Servers.Arn,
     });
 
-    NagSuppressions.addResourceSuppressions(table, [
-      {
-        id: "NIST.800.53.R5-DynamoDBInBackupPlan",
-        reason: "Not using AWS Backup",
-      },
-    ]);
+    replicationRegions.forEach((region) => {
+      const replicaTable = table.replica(region);
+      SSMParameterWriter.writeStringParameter(this, "TableNameParameter", {
+        stringValue: replicaTable.tableName,
+        parameterName: SSMParameters.Tables.Servers.Name,
+        region,
+      });
+
+      SSMParameterWriter.writeStringParameter(this, "TableArnParameter", {
+        stringValue: replicaTable.tableArn,
+        parameterName: SSMParameters.Tables.Servers.Arn,
+        region,
+      });
+    });
   }
 }

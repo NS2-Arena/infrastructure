@@ -3,8 +3,6 @@ import { Construct } from "constructs";
 import { SSMParameters } from "../ssm-parameter-management/ssm-parameters";
 import { Stack } from "aws-cdk-lib";
 import { SSMParameterReader } from "../ssm-parameter-management/ssm-parameter-reader";
-import { Variable } from "aws-cdk-lib/aws-codepipeline";
-import { Variables } from "../../../bin/variables";
 
 interface DynamoTables {
   ServerTable: ITable;
@@ -30,13 +28,11 @@ export class DynamoTableFetcher {
 
   constructor(scope: Construct) {
     // Fetch all tables from SSM Paramters
-    const mainRegion = Variables.getMainRegion();
     const serverTableArn = SSMParameterReader.readStringParameter(
       scope,
       "ServerTableArn",
       {
         parameterName: SSMParameters.Tables.Servers.Arn,
-        region: mainRegion,
       }
     );
     const serverTable = Table.fromTableArn(

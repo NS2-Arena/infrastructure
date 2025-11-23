@@ -1,9 +1,6 @@
 import { Duration } from "aws-cdk-lib";
 import { Architecture } from "aws-cdk-lib/aws-lambda";
-import {
-  NodejsFunction,
-  NodejsFunctionProps,
-} from "aws-cdk-lib/aws-lambda-nodejs";
+import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 import { Construct } from "constructs";
 import { DynamoTableFetcher } from "../dynamo-table/dynamo-tables-fetcher";
 import {

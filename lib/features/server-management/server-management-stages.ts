@@ -6,6 +6,7 @@ import {
   CustomState,
   InputType,
   IntegrationPattern,
+  Pass,
   Wait,
   WaitTime,
 } from "aws-cdk-lib/aws-stepfunctions";
@@ -29,7 +30,7 @@ import { EcrRepoInfo } from "../serverless-ns2-server/ecr-repo-info";
 
 interface ServerManagementStagesProps {
   serverlessNs2Server: ServerlessNS2Server;
-  taskDefinition: NS2ServerTaskDefinition;
+  ns2ServerTaskDefinition: NS2ServerTaskDefinition;
   createServerRecord: CreateServerRecord;
   updateStatePending: UpdateStatePending;
   updateStateActive: UpdateStateActive;
@@ -47,13 +48,24 @@ export class ServerManagementStages extends Construct {
     super(scope, id);
 
     const {
-      taskDefinition: { taskDefinition, taskRole },
+      ns2ServerTaskDefinition: { taskDefinition },
       serverlessNs2Server,
       createServerRecord,
       updateStateActive,
       updateStatePending,
       updateStateDeprovisioning,
     } = props;
+
+    const assignInputVars = new Pass(this, "AssignInputVars", {
+      assign: {
+        inputArgs: {
+          name: "{% $states.input.name %}",
+          password: "{% $states.input.password %}",
+          launchConfig: "{% $states.input.launchConfig %}",
+          map: "{% $states.input.map %}",
+        },
+      },
+    });
 
     const createServerRecordStage = new LambdaInvoke(
       this,
@@ -139,9 +151,16 @@ export class ServerManagementStages extends Construct {
             EcrRepoInfo.Containers.Ns2Server
           )!,
           environment: [
-            { name: "NAME", value: "A Test Server" },
-            { name: "PASSWORD", value: "itsabigtest" },
-            { name: "LAUNCH_CONFIG", value: "TestConfig" },
+            { name: "NAME", value: "{% $inputArgs.name %}" },
+            { name: "PASSWORD", value: "{% $inputArgs.password %}" },
+            {
+              name: "LAUNCH_CONFIG",
+              value: "{% $inputArgs.launchConfig %}",
+            },
+            {
+              name: "MAP",
+              value: "{% $inputArgs.map %}",
+            },
             {
               name: "TASK_TOKEN",
               value: "{% $states.context.Task.Token %}",
@@ -191,6 +210,10 @@ export class ServerManagementStages extends Construct {
       },
     });
 
+    const waitForTaskToStop = new Wait(this, "WaitForTaskToStop", {
+      time: WaitTime.duration(Duration.seconds(3)),
+    });
+
     const describeTask = new CustomState(this, "DescribeTask", {
       stateJson: {
         Type: "Task",
@@ -203,10 +226,6 @@ export class ServerManagementStages extends Construct {
           TaskState: "{% $states.result.Tasks[0].LastStatus %}",
         },
       },
-    });
-
-    const waitForTaskToStop = new Wait(this, "WaitForTaskToStop", {
-      time: WaitTime.duration(Duration.seconds(3)),
     });
 
     const terminateInstance = new CustomState(this, "TerminateInstance", {
@@ -235,14 +254,16 @@ export class ServerManagementStages extends Construct {
     const continueDeprovisioningChain =
       Chain.start(terminateInstance).next(deleteServerRecord);
 
-    const waitForDeprovisioningLoop = Chain.start(describeTask).next(
-      new Choice(this, "HasTaskStopped")
-        .when(
-          Condition.jsonata("{% $states.input.TaskState = 'STOPPED' %}"),
-          continueDeprovisioningChain
-        )
-        .otherwise(Chain.start(waitForTaskToStop).next(describeTask))
-    );
+    const waitForDeprovisioningLoop = Chain.start(waitForTaskToStop)
+      .next(describeTask)
+      .next(
+        new Choice(this, "HasTaskStopped")
+          .when(
+            Condition.jsonata("{% $states.input.TaskState = 'STOPPED' %}"),
+            continueDeprovisioningChain
+          )
+          .otherwise(waitForTaskToStop)
+      );
 
     const runServerChain = Chain.start(updateStatePendingStage)
       .next(runTask)
@@ -264,7 +285,8 @@ export class ServerManagementStages extends Construct {
           .otherwise(waitForInstance)
       );
 
-    this.chain = Chain.start(createServerRecordStage)
+    this.chain = Chain.start(assignInputVars)
+      .next(createServerRecordStage)
       .next(createInstance)
       .next(waitForProvisioningLoop);
   }

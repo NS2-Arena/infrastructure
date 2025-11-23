@@ -66,6 +66,7 @@ new DatabaseStack(app, "DatabaseTables", {
   },
   serviceName: "DatabaseTables",
   environment,
+  replicationRegions: secondaryRegions,
 });
 
 new RestApiStack(app, "RestApi", {

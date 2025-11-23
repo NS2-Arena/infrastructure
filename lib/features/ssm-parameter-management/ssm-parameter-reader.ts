@@ -3,7 +3,6 @@ import { Construct } from "constructs";
 import { SSMDependencyTracker } from "./ssm-dependency-tracker";
 import { Stack } from "aws-cdk-lib";
 import { RegionalSSMParameterReader } from "./regional-ssm-parameter-reader";
-import { Variables } from "../../../bin/variables";
 
 export class SSMParameterReader {
   public static readStringParameter(
